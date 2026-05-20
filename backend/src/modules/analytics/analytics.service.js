@@ -7,9 +7,10 @@ export const getLatestAnalytics = async () => {
     .eq("is_ready_analysis", true)
     .order("date", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (planError) throw planError;
+  if (!latestPlan) return { plan: null, analysis: [] };
 
   const { data, error } = await supabase
     .from("production_analysis")

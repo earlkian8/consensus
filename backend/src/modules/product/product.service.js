@@ -35,7 +35,7 @@ export const createProduct = async (product) => {
     .from("products")
     .insert({ name, category, dish_type, batch_solid_count, unit_solid, batch_liquid_volume, unit_liquid, notes, picture })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -49,7 +49,7 @@ export const updateProduct = async (id, product) => {
     .update({ name, category, dish_type, batch_solid_count, unit_solid, batch_liquid_volume, unit_liquid, notes, picture })
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -61,7 +61,7 @@ export const deleteProduct = async (id) => {
     .delete()
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
