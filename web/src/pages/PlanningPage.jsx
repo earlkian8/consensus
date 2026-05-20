@@ -103,7 +103,7 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                                     <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm ml-1.5 ${item.aiDir === 'down' ? 'bg-destructive/10 text-destructive' :
                                         item.aiDir === 'up' ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'
                                         }`}>
-                                        AI {item.aiDir}: {item.aiQty}
+                                        AI {item.aiDir}: {Math.round(item.aiQty)}
                                     </span>
                                 ) : null;
 
@@ -114,7 +114,7 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                                                 <b className="font-bold">{product.name}</b>{" "}
                                                 <span className="text-[10px] text-muted-foreground">{product.cat}</span>
                                             </td>
-                                            <td className="py-2 px-2 align-middle text-right">{item.qty}</td>
+                                            <td className="py-2 px-2 align-middle text-right">{Math.round(item.qty)}</td>
                                             <td className="py-2 px-2 align-middle">{product.unit_solid || product.unit}</td>
                                             {!readonly && (
                                                 <td className="py-2 px-2 align-middle whitespace-nowrap">
@@ -231,13 +231,11 @@ export default function PlanningPage({
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [proceedConfirmId, setProceedConfirmId] = useState(null);
 
-    // Latest plan = the one with active session, or the most recently created idle plan
     const activePlan = plans.find((p) => session && session.planId === p.id && session.status === "active");
     const latestIdlePlan = [...plans].reverse().find((p) => p.status === "idle");
     const currentPlan = activePlan || latestIdlePlan || null;
     const currentIndex = currentPlan ? plans.indexOf(currentPlan) : 0;
 
-    // Everything else goes to history (ended plans + idle plans that aren't the current one)
     const historyPlans = plans.filter((p) => p !== currentPlan);
 
     const totalProducts = plans.reduce((sum, p) => sum + p.items.length, 0);
@@ -330,7 +328,7 @@ export default function PlanningPage({
                 </div>
             )}
 
-            {/* Main Content - Only shows current/active plan */}
+            {/* Main Content */}
             {products.length === 0 ? (
                 <div className="text-center py-12 px-3.5">
                     <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4">
