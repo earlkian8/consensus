@@ -3,8 +3,8 @@ import "sileo/styles.css"
 
 export { sileo, Toaster }
 
-export function SileoToastProvider({ position = "bottom-right", ...props }) {
-  return <Toaster position={position} {...props} />
+export function SileoToastProvider({ position = "top-center", ...props }) {
+  return <Toaster position={position} theme="dark" {...props} />
 }
 
 export default function SileoToast({

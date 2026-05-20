@@ -9,14 +9,13 @@ export default function AuditPage({
     productsById,
     auditEntries,
     auditStats,
-    units,
     conditions,
     onAuditEntryChange,
     onRunAI,
     onGoToPlanning,
 }) {
     return (
-        <div className={`max-w-215 mx-auto px-4 py-6 pb-10 ${active ? "block" : "hidden"}`}>
+        <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             {!session || session.status !== "ended" ? (
                 <div className="text-center py-7 px-3.5 text-muted-foreground">
                     <div className="text-3xl mb-2">[ ]</div>
@@ -35,16 +34,33 @@ export default function AuditPage({
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
                         <Card className="p-3 bg-secondary/50 border-none">
-                            <div className="text-xl font-bold text-foreground">{auditStats.planned || "-"}</div>
+                            <div className="text-xl font-bold text-foreground">
+                                {auditStats.planned || "-"}
+                                {auditStats.plannedLiquid > 0 && (
+                                    <span className="text-sm font-medium ml-1">+ {auditStats.plannedLiquid}L</span>
+                                )}
+                            </div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Total planned</div>
                         </Card>
                         <Card className="p-3 bg-secondary/50 border-none">
-                            <div className="text-xl font-bold text-destructive">{auditStats.excess || "-"}</div>
+                            <div className="text-xl font-bold text-destructive">
+                                {auditStats.excess || "-"}
+                                {auditStats.excessLiquid > 0 && (
+                                    <span className="text-sm font-medium ml-1">+ {auditStats.excessLiquid}L</span>
+                                )}
+                            </div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Total excess</div>
                         </Card>
                         <Card className="p-3 bg-secondary/50 border-none">
-                            <div className="text-xl font-bold text-amber-600">{`${auditStats.pct}%`}</div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5">Waste rate</div>
+                            <div className="text-xl font-bold text-amber-600">
+                                {`${auditStats.pct}%`}
+                                {auditStats.plannedLiquid > 0 && (
+                                    <span className="text-sm font-medium ml-1">/ {auditStats.pctLiquid}%</span>
+                                )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                                Waste rate{auditStats.plannedLiquid > 0 ? " (solid / liquid)" : ""}
+                            </div>
                         </Card>
                     </div>
 
@@ -64,16 +80,28 @@ export default function AuditPage({
                                         <div className="flex-1">
                                             <div className="text-[13px] font-bold text-foreground">{product.name}</div>
                                             <div className="text-[10px] text-muted-foreground">
-                                                Planned: {item.qty} {product.unit}
+                                                Planned: {item.qty} {product.unit_solid || product.unit}
+                                                {product.unit_liquid && (
+                                                    <> + {item.liquidQty ?? product.batch_liquid_volume ?? 0} {product.unit_liquid}</>
+                                                )}
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                                            Planned: {item.qty}
-                                        </Badge>
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                                {item.qty} {product.unit_solid || product.unit}
+                                            </Badge>
+                                            {product.unit_liquid && (
+                                                <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                    {item.liquidQty ?? product.batch_liquid_volume ?? 0} {product.unit_liquid}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-background">
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[11px] font-semibold text-muted-foreground">Excess amount</label>
+                                            <label className="text-[11px] font-semibold text-muted-foreground">
+                                                Excess {product.unit_solid || product.unit}
+                                            </label>
                                             <Input
                                                 className="h-8.5 text-[13px] bg-background"
                                                 type="number"
@@ -85,20 +113,24 @@ export default function AuditPage({
                                                 placeholder="0"
                                             />
                                         </div>
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-[11px] font-semibold text-muted-foreground">Unit</label>
-                                            <select
-                                                className="h-8.5 text-[13px] px-2.5 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                                                value={entry.unit}
-                                                onChange={(event) =>
-                                                    onAuditEntryChange(product.id, { unit: event.target.value }, product.unit)
-                                                }
-                                            >
-                                                {units.map((unit) => (
-                                                    <option key={unit}>{unit}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {product.unit_liquid && (
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-[11px] font-semibold text-muted-foreground">
+                                                    Excess {product.unit_liquid}
+                                                </label>
+                                                <Input
+                                                    className="h-8.5 text-[13px] bg-background"
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.1"
+                                                    value={entry.excessLiquidQty || ""}
+                                                    onChange={(event) =>
+                                                        onAuditEntryChange(product.id, { excessLiquidQty: event.target.value }, product.unit)
+                                                    }
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="flex flex-col gap-1">
                                             <label className="text-[11px] font-semibold text-muted-foreground">Condition</label>
                                             <select

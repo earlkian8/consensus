@@ -55,6 +55,46 @@ export const buildAIResults = (auditRows) => {
             unit: entry.excUnit,
             dir,
         });
+
+        // Handle liquid component for SOLID_IN_SOUP products
+        if (entry.unitLiquid && entry.excessLiquid !== undefined) {
+            const liquidPlanned = entry.liquidPlanned || 0;
+            let newLiquidQty = liquidPlanned;
+            let liquidDir = "same";
+
+            if (liquidPlanned > 0) {
+                const liquidPct = Math.round((entry.excessLiquid / liquidPlanned) * 100);
+                if (liquidPct >= 25) {
+                    newLiquidQty = Math.max(0.5, Math.round(liquidPlanned * 0.75 * 10) / 10);
+                    liquidDir = "down";
+                    recommendations.push(
+                        `${entry.name} soup had ${liquidPct}% excess - reduce liquid by about 25% (${liquidPlanned} -> ${newLiquidQty} ${entry.unitLiquid}).`
+                    );
+                } else if (liquidPct >= 12) {
+                    newLiquidQty = Math.max(0.5, Math.round(liquidPlanned * 0.9 * 10) / 10);
+                    liquidDir = "down";
+                    recommendations.push(
+                        `${entry.name} soup had ${liquidPct}% excess - reduce liquid by about 10% (${liquidPlanned} -> ${newLiquidQty} ${entry.unitLiquid}).`
+                    );
+                } else if (liquidPct === 0) {
+                    newLiquidQty = Math.round(liquidPlanned * 1.07 * 10) / 10;
+                    liquidDir = "up";
+                }
+            }
+
+            // Add liquid suggestion to the same product entry
+            suggestions[suggestions.length - 1].newLiquidQty = newLiquidQty;
+            suggestions[suggestions.length - 1].liquidDir = liquidDir;
+
+            rows.push({
+                name: `${entry.name} (soup)`,
+                planned: liquidPlanned,
+                newQty: newLiquidQty,
+                unit: entry.unitLiquid,
+                dir: liquidDir,
+            });
+        }
+
         chartData.push({
             name: entry.name,
             planned: entry.planned,

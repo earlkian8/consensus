@@ -46,41 +46,50 @@ export const DISPOSITIONS = [
 
 export const CONDITIONS = ["Still sellable", "Repurposable", "Must discard"];
 
-export const DEFAULT_PRODUCTS = [
+export const DISH_TYPE_UNITS = {
+    BY_PIECE: ["pieces"],
+    SOUP_STEW: ["liters"],
+    SOLID_IN_SOUP: ["pieces"],
+    DRY_SCOOPED: ["scoops", "grams (g)", "kilograms (kg)", "cups", "servings"],
+    SAUCE_BASED: ["grams (g)", "kilograms (kg)", "servings", "cups", "pieces"],
+};
+
+export const DISH_TYPES = [
     {
-        id: 1,
-        name: "Garlic Fried Rice",
-        cat: "Side dish",
-        qty: 60,
-        unit: "servings",
-        cost: 15,
-        notes: "",
+        key: "BY_PIECE",
+        icon: "Drumstick",
+        label: "By Piece",
+        desc: "Countable items served per piece",
+        example: "e.g. fried chicken, pork chop, egg",
     },
     {
-        id: 2,
-        name: "Chicken Adobo",
-        cat: "Main dish",
-        qty: 45,
-        unit: "servings",
-        cost: 120,
-        notes: "Popular daily",
+        key: "SOUP_STEW",
+        icon: "Soup",
+        label: "Soup / Stew",
+        desc: "Liquid-based dishes served by volume",
+        example: "e.g. arroz caldo, lugaw, bulalo",
     },
     {
-        id: 3,
-        name: "Sinigang na Baboy",
-        cat: "Soup / Stew",
-        qty: 30,
-        unit: "bowls",
-        cost: 95,
-        notes: "",
+        key: "SOLID_IN_SOUP",
+        icon: "FlameKindling",
+        label: "Solid in Soup",
+        desc: "Has both solid components and soup",
+        example: "e.g. sinigang, nilaga, tinola",
     },
     {
-        id: 4,
-        name: "Pandesal",
-        cat: "Bread / Pastry",
-        qty: 80,
-        unit: "pieces",
-        cost: 8,
-        notes: "Morning only",
+        key: "DRY_SCOOPED",
+        icon: "Wheat",
+        label: "Dry / Scooped",
+        desc: "Served by scoop or weight",
+        example: "e.g. rice, pancit, chopsuey",
+    },
+    {
+        key: "SAUCE_BASED",
+        icon: "ChefHat",
+        label: "Sauce-Based",
+        desc: "Solid dish with thick sauce, not soup",
+        example: "e.g. adobo, kaldereta, menudo",
     },
 ];
+
+export const DEFAULT_PRODUCTS = [];

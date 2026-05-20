@@ -4,25 +4,51 @@
 @import "tailwindcss";
 
 @theme {
-    --color-background: #f8f7f4;
-    --color-foreground: #2c2c2a;
-    --color-card: #ffffff;
-    --color-card-foreground: #2c2c2a;
-    --color-popover: #ffffff;
-    --color-popover-foreground: #2c2c2a;
-    --color-primary: #1d9e75;
+    /* ── Surfaces ── */
+    --color-background: #edeae2;        /* warm sand — noticeably earthy, not washed out */
+    --color-foreground: #28251f;        /* deep espresso brown — grounded, readable */
+    --color-card: #f7f5ef;             /* soft cream — lifts cards off the background */
+    --color-card-foreground: #28251f;
+    --color-popover: #fdfcf8;
+    --color-popover-foreground: #28251f;
+
+    /* ── Primary — Forest Green ── */
+    --color-primary: #2a7d5f;          /* deep forest green — sustainability, trust, action */
     --color-primary-foreground: #ffffff;
-    --color-secondary: #f1efe8;
-    --color-secondary-foreground: #2c2c2a;
-    --color-muted: #f1efe8;
-    --color-muted-foreground: #6a655d;
-    --color-accent: #e1f5ee;
-    --color-accent-foreground: #0f6e56;
-    --color-destructive: #d85a30;
+
+    /* ── Secondary — Warm Linen ── */
+    --color-secondary: #ede9df;        /* warm linen — neutral sections, tag backgrounds */
+    --color-secondary-foreground: #28251f;
+
+    /* ── Muted ── */
+    --color-muted: #e8e4d9;            /* toasted oat — muted panels, disabled states */
+    --color-muted-foreground: #6b6358; /* warm taupe — secondary labels, captions */
+
+    /* ── Accent — SDG 12 Golden Amber ── */
+    --color-accent: #bf8b2e;           /* SDG 12 golden-orange — highlights, badges, CTAs */
+    --color-accent-foreground: #ffffff;
+
+    /* ── Accent Tint — for subtle accent surfaces ── */
+    --color-accent-subtle: #fdf3dc;    /* pale amber wash — accent card backgrounds, callouts */
+    --color-accent-subtle-foreground: #7a5418;
+
+    /* ── Destructive — Terracotta ── */
+    --color-destructive: #c0442a;      /* deep terracotta — waste alerts, errors, critical actions */
     --color-destructive-foreground: #ffffff;
-    --color-border: #d3d1c7;
-    --color-input: #d3d1c7;
-    --color-ring: #1d9e75;
+
+    /* ── Warning — Harvest Orange ── */
+    --color-warning: #e07b39;          /* harvest orange — expiry warnings, near-waste indicators */
+    --color-warning-foreground: #ffffff;
+
+    /* ── Success — Sage Green ── */
+    --color-success: #4a9e72;          /* sage green — saved waste metrics, positive KPIs */
+    --color-success-foreground: #ffffff;
+
+    /* ── Chrome ── */
+    --color-border: #d6d1c4;           /* warm stone — borders that don't feel cold */
+    --color-input: #d6d1c4;
+    --color-ring: #2a7d5f;             /* matches primary for focus rings */
+
     --radius: 10px;
     --font-sans: "Google Sans", sans-serif;
 }
@@ -35,10 +61,6 @@
   body {
       font-family: var(--font-sans);
       background-color: var(--color-background);
-      background-image:
-          radial-gradient(circle at 10% 15%, rgba(225, 245, 238, 0.6), transparent 55%),
-          radial-gradient(circle at 85% 0%, rgba(250, 238, 218, 0.5), transparent 60%),
-          linear-gradient(120deg, rgba(216, 90, 48, 0.08), transparent 55%);
       color: var(--color-foreground);
       min-height: 100vh;
       font-size: 14px;
@@ -47,5 +69,20 @@
 
   #root {
       min-height: 100vh;
+  }
+
+  /* ── Sileo toast: force dark blob so it's visible on light backgrounds ── */
+  [data-sileo-viewport] svg path,
+  [data-sileo-viewport] svg rect,
+  [data-sileo-viewport] svg ellipse {
+      fill: #28251f !important;
+  }
+
+  [data-sileo-description] {
+      color: rgba(255, 255, 255, 0.6) !important;
+  }
+
+  [data-sileo-title] {
+      color: inherit;
   }
 }

@@ -1,47 +1,32 @@
 import { z } from "zod";
 
+const DISH_TYPES = ["BY_PIECE", "SOUP_STEW", "SOLID_IN_SOUP", "DRY_SCOOPED", "SAUCE_BASED"];
+
+const productBodySchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  category: z.string().optional(),
+  dish_type: z.enum(DISH_TYPES, { errorMap: () => ({ message: "Invalid dish type" }) }),
+  batch_solid_count: z.number().positive().nullable().optional(),
+  unit_solid: z.string().nullable().optional(),
+  batch_liquid_volume: z.number().positive().nullable().optional(),
+  unit_liquid: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  picture: z.string().nullable().optional(),
+});
+
 export const createProductSchema = z.object({
-  body: z.object({
-    name: z.string().min(1, "Product name is required"),
-    picture: z.string().url("Invalid picture URL").optional().or(z.literal("")),
-  }),
+  body: productBodySchema,
 });
 
 export const updateProductSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid product ID"),
   }),
-  body: z.object({
-    name: z.string().min(1, "Product name is required").optional(),
-    picture: z.string().url("Invalid picture URL").optional().or(z.literal("")),
-  }),
+  body: productBodySchema.partial(),
 });
 
 export const deleteProductSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid product ID"),
-  }),
-});
-
-export const createPlanningSchema = z.object({
-  body: z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-    is_ready_analysis: z.boolean().optional(),
-  }),
-});
-
-export const updatePlanningSchema = z.object({
-  params: z.object({
-    id: z.string().uuid("Invalid planning ID"),
-  }),
-  body: z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional(),
-    is_ready_analysis: z.boolean().optional(),
-  }),
-});
-
-export const deletePlanningSchema = z.object({
-  params: z.object({
-    id: z.string().uuid("Invalid planning ID"),
   }),
 });
