@@ -29,6 +29,7 @@ function Dashboard() {
     const [session, setSession] = useState(null);
     const [timerTick, setTimerTick] = useState(() => Date.now());
     const [newPlanOpen, setNewPlanOpen] = useState(false);
+    const [createProductOpen, setCreateProductOpen] = useState(false);
     const [endModalOpen, setEndModalOpen] = useState(false);
     const [newPlanName, setNewPlanName] = useState("");
     const [newPlanEndTime, setNewPlanEndTime] = useState("17:00");
@@ -40,6 +41,7 @@ function Dashboard() {
         unit: PRODUCT_UNITS[0],
         cost: "",
         notes: "",
+        image: "",
     });
     const [auditEntries, setAuditEntries] = useState({});
     const [auditDisposition, setAuditDisposition] = useState(DISPOSITIONS[0]);
@@ -109,6 +111,15 @@ function Dashboard() {
         setProductDraft((prev) => ({ ...prev, [key]: value }));
     };
 
+    const openCreateProductModal = () => {
+        setProductDraft((prev) => ({ ...prev, name: "", qty: "", image: "" }));
+        setCreateProductOpen(true);
+    };
+
+    const closeCreateProductModal = () => {
+        setCreateProductOpen(false);
+    };
+
     const addProduct = () => {
         const name = productDraft.name.trim();
         if (!name) {
@@ -116,17 +127,18 @@ function Dashboard() {
                 title: "Product name missing",
                 description: "Add a name before saving a product.",
             });
-            return;
+            return false;
         }
 
         const newProduct = {
             id: nextProdId.current,
             name,
-            cat: productDraft.cat,
+            cat: productDraft.cat || PRODUCT_CATEGORIES[0],
             qty: Number(productDraft.qty) || 10,
-            unit: productDraft.unit,
+            unit: productDraft.unit || PRODUCT_UNITS[0],
             cost: Number(productDraft.cost) || 0,
             notes: productDraft.notes.trim(),
+            image: productDraft.image || "",
         };
 
         nextProdId.current += 1;
@@ -137,11 +149,13 @@ function Dashboard() {
             qty: "",
             cost: "",
             notes: "",
+            image: "",
         }));
         fireToast("success", {
             title: "Product added",
             description: `${name} is ready for planning.`,
         });
+        return true;
     };
 
     const deleteProduct = (id) => {
@@ -507,11 +521,12 @@ function Dashboard() {
                 active={page === "products"}
                 products={products}
                 productDraft={productDraft}
-                categories={PRODUCT_CATEGORIES}
-                units={PRODUCT_UNITS}
                 onDraftChange={updateProductDraft}
                 onAddProduct={addProduct}
                 onDeleteProduct={deleteProduct}
+                createProductOpen={createProductOpen}
+                onOpenCreateProduct={openCreateProductModal}
+                onCloseCreateProduct={closeCreateProductModal}
                 onContinue={() => gotoPage("planning")}
             />
 
