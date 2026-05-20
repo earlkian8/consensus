@@ -6,3 +6,4 @@ export { default as AuditPage } from './AuditPage';
 export { default as AiInsightsPage } from './AiInsightsPage';
 export { default as Login } from './Login';
 export { default as Register } from './Register';
+export { default as NotFound } from './NotFound';
