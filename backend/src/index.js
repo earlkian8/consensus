@@ -12,6 +12,9 @@ app.get("/", (req, res) => {
   res.send("Hello, World!");
 });
 
+/*
+/api
+*/
 // sample post
 app.post("/send", async (req, res) => {
   try {
