@@ -1,6 +1,22 @@
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Input } from "@/components/shadcnUI/input";
+import { CircleFadingArrowUp } from "lucide-react";
+
+function formatTimeTo12Hour(time24) {
+    if (!time24) return "";
+
+    const [hourStr, minuteStr] = time24.split(":");
+    let hour = Number(hourStr);
+    const minute = minuteStr;
+
+    const period = hour >= 12 ? "PM" : "AM";
+
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+
+    return `${hour}:${minute} ${period}`;
+}
 
 export default function PlanningPage({
     active,
@@ -86,7 +102,7 @@ export default function PlanningPage({
                                     <div style={{ flex: 1 }}>
                                         <div className="plan-name">{plan.name}</div>
                                         <div className="plan-meta">
-                                            {totalItems} products - ends {plan.endTime}
+                                            {totalItems} products - ends {formatTimeTo12Hour(plan.endTime)}
                                             {isActive && (
                                                 <Badge className="badge b-green">Active</Badge>
                                             )}
@@ -106,7 +122,7 @@ export default function PlanningPage({
                                         className={`plan-chevron ${activePlanId === plan.id ? "open" : ""
                                             }`}
                                     >
-                                        v
+                                    <CircleFadingArrowUp />   
                                     </span>
                                 </div>
                                 <div

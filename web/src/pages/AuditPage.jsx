@@ -138,7 +138,7 @@ export default function AuditPage({
                             );
                         })}
                     </div>
-                    <div className="section-label">Excess disposition</div>
+                    {/* <div className="section-label">Excess disposition</div>
                     <Card className="card">
                         <div className="row">
                             <div className="field">
@@ -162,7 +162,7 @@ export default function AuditPage({
                                 />
                             </div>
                         </div>
-                    </Card>
+                    </Card> */}
                     <Button
                         className="btn btn-green btn-full"
                         style={{ marginTop: "6px" }}

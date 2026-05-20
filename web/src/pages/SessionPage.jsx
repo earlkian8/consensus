@@ -1,14 +1,12 @@
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Card } from "@/components/shadcnUI/card";
-import { formatDate, formatDuration, formatTime } from "@/lib/consensus-utils";
+import { formatDate, formatTime } from "@/lib/consensus-utils";
 
 export default function SessionPage({
     active,
     session,
     productsById,
-    remainingMs,
-    timerFill,
     onEndSessionEarly,
     onGoToPlanning,
     onGoToAudit,
@@ -55,16 +53,15 @@ export default function SessionPage({
                         now serving.
                     </div>
                     <Card className="card">
-                        <div className="timer-label">Time remaining until scheduled end</div>
-                        <div className="timer-display">{formatDuration(remainingMs)}</div>
-                        <div className="timer-bar">
-                            <div className="timer-fill" style={{ width: `${timerFill}%` }} />
-                        </div>
+                        <div className="timer-label">Scheduled end time</div>
+                        <div className="timer-display">{formatTime(session.endTime)}</div>
                         <div className="timer-actions">
                             <Button className="btn btn-coral" type="button" onClick={onEndSessionEarly}>
                                 End session now
                             </Button>
-                            <span className="timer-note">or wait for scheduled end</span>
+                            <span className="timer-note">
+                                Auto-ends when the clock hits the scheduled time
+                            </span>
                         </div>
                     </Card>
                     <div className="section-label">Items in this session</div>

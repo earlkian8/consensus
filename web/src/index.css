@@ -1,4 +1,5 @@
-@import "@fontsource-variable/geist";
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
+
 @import "tailwindcss";
 
 @theme {
@@ -25,7 +26,7 @@
 }
 
 :root {
-    --font-sans: "Geist Variable", "Geist", sans-serif;
+    --font-sans: "Google Sans", sans-serif;
     --green: #1d9e75;
     --green-lt: #e1f5ee;
     --green-md: #0f6e56;

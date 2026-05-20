@@ -27,7 +27,6 @@ function Dashboard() {
     const [plans, setPlans] = useState([]);
     const [activePlanId, setActivePlanId] = useState(null);
     const [session, setSession] = useState(null);
-    const [timerTick, setTimerTick] = useState(() => Date.now());
     const [newPlanOpen, setNewPlanOpen] = useState(false);
     const [createProductOpen, setCreateProductOpen] = useState(false);
     const [endModalOpen, setEndModalOpen] = useState(false);
@@ -78,18 +77,6 @@ function Dashboard() {
         }),
         []
     );
-
-    useEffect(() => {
-        if (!session || session.status !== "active") {
-            return undefined;
-        }
-
-        const interval = setInterval(() => {
-            setTimerTick(Date.now());
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [session]);
 
     useEffect(
         () => () => {
@@ -503,15 +490,6 @@ function Dashboard() {
         setApplyNoteVisible(false);
     };
 
-    const remainingMs =
-        session && session.status === "active"
-            ? Math.max(0, session.endTime.getTime() - timerTick)
-            : 0;
-    const totalMs = session
-        ? session.endTime.getTime() - session.startTime.getTime()
-        : 0;
-    const timerFill = totalMs > 0 ? Math.round((remainingMs / totalMs) * 100) : 0;
-
     return (
         <div className="app-shell">
             <SileoToastProvider position="bottom-right" />
@@ -550,8 +528,6 @@ function Dashboard() {
                 active={page === "session"}
                 session={session}
                 productsById={productsById}
-                remainingMs={remainingMs}
-                timerFill={timerFill}
                 onEndSessionEarly={endSessionEarly}
                 onGoToPlanning={() => gotoPage("planning")}
                 onGoToAudit={() => gotoPage("audit")}
