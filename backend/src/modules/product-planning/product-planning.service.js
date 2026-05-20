@@ -6,7 +6,7 @@ export const getLatestProductPlanning = async () => {
     .select("*, production_details(*)")
     .order("date", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -29,7 +29,7 @@ export const createProductPlanning = async (planning) => {
     .from("production_plans")
     .insert({ name, date, end_time: end_time ?? null, is_ready_analysis: is_ready_analysis ?? false })
     .select()
-    .single();
+    .maybeSingle();
 
   if (planError) throw planError;
 
@@ -49,7 +49,7 @@ export const updateProductDetailAmount = async (detailId, amount) => {
     .update({ amount })
     .eq("id", detailId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -64,7 +64,7 @@ export const updateProductDetailExcess = async (planId, details) => {
         .update({ excess, condition: condition ?? null })
         .eq("id", id)
         .select()
-        .single()
+        .maybeSingle()
     )
   );
 
@@ -79,7 +79,7 @@ export const updateProductDetailExcess = async (planId, details) => {
 
   if (checkError) throw checkError;
 
-  const allFilled = allDetails.every((d) => d.excess !== null);
+  const allFilled = allDetails.length > 0 && allDetails.every((d) => d.excess !== null);
 
   if (allFilled) {
     const { error: updatePlanError } = await supabase
@@ -92,7 +92,7 @@ export const updateProductDetailExcess = async (planId, details) => {
     await runAnalysis(planId);
   }
 
-  return { updated: updates.map((r) => r.data), is_ready_analysis: allFilled };
+  return { updated: updates.map((r) => r.data).filter(Boolean), is_ready_analysis: allFilled };
 };
 
 import * as analysisService from "../analysis/analysis.service.js";
@@ -110,9 +110,13 @@ const runAnalysis = async (planId) => {
     .from("production_plans")
     .select("date")
     .eq("id", planId)
-    .single();
+    .maybeSingle();
 
   if (planError) throw planError;
+  if (!plan) {
+    console.warn(`[runAnalysis] Plan ${planId} not found, skipping analysis.`);
+    return;
+  }
 
   console.log("[runAnalysis] Using Python AI Model for planId:", planId);
 
@@ -174,7 +178,7 @@ export const updatePlanStatus = async (id, status) => {
     .update(patch)
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -188,7 +192,7 @@ export const updateProductPlanning = async (id, planning) => {
     .update({ date, is_ready_analysis })
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -200,7 +204,7 @@ export const deleteProductPlanning = async (id) => {
     .delete()
     .eq("id", id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;

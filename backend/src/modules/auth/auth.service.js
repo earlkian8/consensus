@@ -11,7 +11,7 @@ export const register = async (email, password) => {
     .from("user")
     .insert({ email, password_hash: passwordHash })
     .select("id, email, created_at")
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -22,7 +22,7 @@ export const login = async (email, password) => {
     .from("user")
     .select("*")
     .eq("email", email)
-    .single();
+    .maybeSingle();
 
   if (error || !user) throw new Error("Invalid credentials");
 

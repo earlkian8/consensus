@@ -231,7 +231,6 @@ function Dashboard() {
             return false;
         }
         const dt = productDraft.dish_type;
-        // Optimistic product with _saving flag
         const tempId = `temp-${Date.now()}`;
         const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || (dt === "DRY_SCOOPED" ? "scoops" : "pieces"));
         const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
@@ -301,7 +300,6 @@ function Dashboard() {
         if (!name || !productDraft.dish_type) return false;
         const dt = productDraft.dish_type;
         const editId = productDraft._editId;
-        // Optimistic update
         const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || (dt === "DRY_SCOOPED" ? "scoops" : "pieces"));
         const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
         const optimistic = {
@@ -420,7 +418,6 @@ function Dashboard() {
                 };
             })
         );
-        // Persist amount to backend (debounced 600ms), only for solid qty
         if (field === "qty") {
             const plan = plans.find((p) => p.id === planId);
             const item = plan?.items.find((i) => i.productId === productId);
@@ -470,7 +467,7 @@ function Dashboard() {
                 if (!prev) return prev;
                 const endedAt = new Date();
                 api.updatePlanStatus(prev.planId, "ended")
-                    .catch(() => {});
+                    .catch(() => { });
                 setPlans((p) => p.map((pl) => pl.id === prev.planId ? { ...pl, status: "ended", ended_at: endedAt.toISOString() } : pl));
                 setAuditEntries(createAuditEntries(prev.items));
                 return { ...prev, status: "ended", endedAt };
@@ -588,14 +585,15 @@ function Dashboard() {
                 return api.getLatestAnalytics();
             })
             .then(({ plan: analysisPlan, analysis }) => {
-                // Build aiResults from backend production_analysis data
                 const rows = analysis.map((a) => {
                     const product = productsById.get(a.p_fk);
                     const sessionItem = session.items.find((i) => i.productId === a.p_fk);
                     const planned = sessionItem?.qty ?? 0;
                     const plannedLiquid = sessionItem?.liquidQty ?? null;
-                    const suggested = Number(a.suggested_amount);
-                    const suggestedLiquid = a.suggested_liquid_amount != null ? Number(a.suggested_liquid_amount) : null;
+
+                    const suggested = Math.round(Number(a.suggested_amount));
+                    const suggestedLiquid = a.suggested_liquid_amount != null ? Number(Number(a.suggested_liquid_amount).toFixed(1)) : null;
+
                     const dir = suggested > planned ? "up" : suggested < planned ? "down" : "same";
                     const liquidDir = suggestedLiquid != null && plannedLiquid != null
                         ? (suggestedLiquid > plannedLiquid ? "up" : suggestedLiquid < plannedLiquid ? "down" : "same")
@@ -629,8 +627,7 @@ function Dashboard() {
                     return `${r.name}: keep at ${r.planned} ${r.unit}.`;
                 });
                 recommendations.push(
-                    `Overall waste rate: ${wastePct}%. SDG 12 target is 10% or lower. ${
-                        wastePct <= 10 ? "On track." : "Keep reducing to reach the goal."
+                    `Overall waste rate: ${wastePct}%. SDG 12 target is 10% or lower. ${wastePct <= 10 ? "On track." : "Keep reducing to reach the goal."
                     }`
                 );
 
@@ -669,7 +666,13 @@ function Dashboard() {
         if (!aiResults) return;
         const today = new Date().toISOString().split("T")[0];
         const color = PLAN_COLORS[plans.length % PLAN_COLORS.length];
-        const name = aiResults.sourcePlanName ? `${aiResults.sourcePlanName} (next)` : "Next Plan";
+
+        let cleanName = (aiResults.sourcePlanName || "Next Plan").replace(/(?:\s*\(next\))+$/gi, "").trim();
+        const versionMatch = cleanName.match(/^(.*?)(?:\s*\(v(\d+)\))?$/i);
+        const baseName = versionMatch[1].trim();
+        const currentVersion = versionMatch[2] ? parseInt(versionMatch[2], 10) : 1;
+        const name = `${baseName} (v${currentVersion + 1})`;
+
         const endTime = aiResults.sourcePlanEndTime || "17:00";
         const details = aiResults.rows
             .filter((r) => r.productId && !r.name.endsWith("(soup)"))
@@ -681,21 +684,37 @@ function Dashboard() {
                     p_fk: r.productId,
                     amount: Math.max(1, useAI ? r.newQty : r.planned),
                     liquid_amount: product?.unit_liquid ? liquidAmt : null,
+                    _aiQty: useAI && r.dir !== "same" ? r.newQty : null,
+                    _aiDir: useAI ? r.dir : "same"
                 };
             });
 
         const tempId = `temp-${Date.now()}`;
         const optimisticItems = details.map((d) => ({
-            productId: d.p_fk, qty: d.amount, liquidQty: null,
-            aiQty: null, aiDir: "same", aiHistory: [], detailId: null, excess: null,
+            productId: d.p_fk,
+            qty: d.amount,
+            liquidQty: d.liquid_amount,
+            aiQty: d._aiQty,
+            aiDir: d._aiDir,
+            aiHistory: [],
+            detailId: null,
+            excess: null,
         }));
         const optimisticPlan = { id: tempId, name, color, endTime, date: today, status: "idle", items: optimisticItems, sessions: [], _saving: true };
         setPlans((prev) => [...prev, optimisticPlan]);
         setApplyNoteVisible(true);
 
-        api.createPlan({ name, date: today, end_time: endTime, details })
+        const apiPayload = details.map(({ p_fk, amount, liquid_amount }) => ({ p_fk, amount, liquid_amount }));
+
+        api.createPlan({ name, date: today, end_time: endTime, details: apiPayload })
             .then((p) => {
                 const realPlan = mapPlan(p, plans.length, color);
+
+                realPlan.items = realPlan.items.map(item => {
+                    const opt = optimisticItems.find(o => o.productId === item.productId);
+                    return { ...item, aiQty: opt?.aiQty || null, aiDir: opt?.aiDir || "same" };
+                });
+
                 setPlans((prev) => prev.map((pl) => pl.id === tempId ? realPlan : pl));
                 setAiStatus("empty");
                 setAiResults(null);
@@ -811,25 +830,25 @@ function Dashboard() {
                 </motion.div>
             </AnimatePresence>
 
-            <EndSessionModal
-                open={endModalOpen}
-                onCancel={() => setEndModalOpen(false)}
-                onConfirm={confirmEndSession}
-            />
+                <EndSessionModal
+                    open={endModalOpen}
+                    onCancel={() => setEndModalOpen(false)}
+                    onConfirm={confirmEndSession}
+                />
 
-            <NewPlanModal
-                open={newPlanOpen}
-                products={products}
-                selectedProductIds={selectedProductIds}
-                planName={newPlanName}
-                endTime={newPlanEndTime}
-                onChangeName={setNewPlanName}
-                onChangeEndTime={setNewPlanEndTime}
-                onToggleSelectAll={toggleSelectAll}
-                onToggleProduct={toggleProductSelect}
-                onClose={() => setNewPlanOpen(false)}
-                onCreate={createPlan}
-            />
+                <NewPlanModal
+                    open={newPlanOpen}
+                    products={products}
+                    selectedProductIds={selectedProductIds}
+                    planName={newPlanName}
+                    endTime={newPlanEndTime}
+                    onChangeName={setNewPlanName}
+                    onChangeEndTime={setNewPlanEndTime}
+                    onToggleSelectAll={toggleSelectAll}
+                    onToggleProduct={toggleProductSelect}
+                    onClose={() => setNewPlanOpen(false)}
+                    onCreate={createPlan}
+                />
             </div>
         </div>
     );
