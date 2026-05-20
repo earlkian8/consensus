@@ -502,7 +502,7 @@ function Dashboard() {
         scheduleSessionEnd(end, sessionItems);
         gotoPage("session");
         api.updatePlanStatus(planId, "active")
-            .catch(() => fireToast("error", { title: "Failed to save session status" }));
+            .catch((err) => fireToast("error", { title: "Failed to save session status", description: err.message }));
     };
 
     const endSessionEarly = () => setEndModalOpen(true);
@@ -519,7 +519,8 @@ function Dashboard() {
         setPlans((prev) => prev.map((p) => p.id === session.planId ? { ...p, status: "ended", ended_at: endedAt.toISOString() } : p));
         setAuditEntries(createAuditEntries(session.items));
         api.updatePlanStatus(session.planId, "ended")
-            .catch(() => fireToast("error", { title: "Failed to save session end status" }));
+            .then(() => console.log("[session end] status updated to ended for", session.planId))
+            .catch((err) => fireToast("error", { title: "Failed to save session end status", description: err.message }));
     };
 
     const updateAuditEntry = (productId, patch, fallbackUnit) => {
@@ -582,11 +583,7 @@ function Dashboard() {
         setApplyNoteVisible(false);
 
         api.submitExcess(session.planId, details)
-            .then(() => api.updatePlanStatus(session.planId, "idle"))
             .then(() => {
-                setPlans((prev) => prev.map((p) =>
-                    p.id === session.planId ? { ...p, status: "idle" } : p
-                ));
                 return api.getLatestAnalytics();
             })
             .then(({ plan: analysisPlan, analysis }) => {

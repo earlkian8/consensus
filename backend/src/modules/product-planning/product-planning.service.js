@@ -103,6 +103,9 @@ const runAnalysis = async (planId) => {
 
   if (currentError) throw currentError;
 
+  console.log("[runAnalysis] planId:", planId);
+  console.log("[runAnalysis] currentDetails:", JSON.stringify(currentDetails));
+
   const suggestions = await Promise.all(
     currentDetails.map(async ({ p_fk, amount, liquid_amount, excess }) => {
       const { data: history, error: historyError } = await supabase
@@ -116,41 +119,61 @@ const runAnalysis = async (planId) => {
 
       if (historyError) throw historyError;
 
-      const calcSuggested = (amt, exc, hist, field) => {
-        const sold = parseFloat(amt) - parseFloat(exc);
-        if (!hist || hist.length === 0) return exc == 0 ? sold * 1.05 : sold;
+      console.log(`[runAnalysis] p_fk=${p_fk} amount=${amount} liquid=${liquid_amount} excess=${excess} history=${JSON.stringify(history)}`);
 
-        const entries = [{ a: amt, e: exc }, ...hist.map((h) => ({ a: h[field], e: h.excess }))];
+      const calcSuggested = (amt, exc, hist) => {
+        const fAmt = parseFloat(amt);
+        const fExc = parseFloat(exc || 0);
+        const sold = fAmt - fExc;
+
+        if (!hist || hist.length === 0) {
+          // No history: nudge up 5% if zero excess (sold out), else use sold
+          return fExc === 0 ? Math.round(fAmt * 1.05) : Math.max(1, sold);
+        }
+
+        // Weighted average of sold across history (most recent = highest weight)
+        const entries = [{ a: fAmt, e: fExc }, ...hist.map((h) => ({
+          a: parseFloat(h.amount || 0),
+          e: parseFloat(h.excess || 0),
+        }))];
+
         let weightedSum = 0, weightTotal = 0;
         entries.forEach(({ a, e }, i) => {
-          if (a == null) return;
           const weight = entries.length - i;
-          weightedSum += (parseFloat(a) - parseFloat(e || 0)) * weight;
+          weightedSum += (a - e) * weight;
           weightTotal += weight;
         });
-        const weightedAvg = weightTotal > 0 ? weightedSum / weightTotal : sold;
-        const avgExcess = entries.reduce((s, { e }) => s + parseFloat(e || 0), 0) / entries.length;
-        const avgAmt = entries.reduce((s, { a }) => s + parseFloat(a || 0), 0) / entries.length;
+        const weightedAvg = weightedSum / weightTotal;
+
+        const avgExcess = entries.reduce((s, { e }) => s + e, 0) / entries.length;
+        const avgAmt = entries.reduce((s, { a }) => s + a, 0) / entries.length;
         const excessRate = avgAmt > 0 ? avgExcess / avgAmt : 0;
 
         if (excessRate > 0.2) return weightedAvg * (1 - excessRate * 0.5);
-        if (parseFloat(exc) === 0) return weightedAvg * 1.05;
+        if (fExc === 0) return weightedAvg * 1.05;
         return weightedAvg;
       };
 
-      const suggested = calcSuggested(amount, excess, history, "amount");
+      const suggested = calcSuggested(amount, excess, history);
+
+      // For liquid: scale proportionally to the solid suggestion ratio
+      // (no separate liquid excess tracked)
       const suggested_liquid = liquid_amount != null
-        ? calcSuggested(liquid_amount, excess, history, "liquid_amount")
+        ? parseFloat(amount) > 0
+          ? parseFloat(liquid_amount) * (suggested / parseFloat(amount))
+          : parseFloat(liquid_amount)
         : null;
 
       return {
         pp_fk: planId,
         p_fk,
-        suggested_amount: Math.max(0, parseFloat(suggested.toFixed(2))),
-        suggested_liquid_amount: suggested_liquid != null ? Math.max(0, parseFloat(suggested_liquid.toFixed(2))) : null,
+        suggested_amount: Math.max(1, parseFloat(suggested.toFixed(2))),
+        suggested_liquid_amount: suggested_liquid != null ? Math.max(0.1, parseFloat(suggested_liquid.toFixed(2))) : null,
       };
     })
   );
+
+  console.log("[runAnalysis] suggestions:", JSON.stringify(suggestions));
 
   const { error: insertError } = await supabase
     .from("production_analysis")
