@@ -13,7 +13,6 @@ export default function Topbar({ activePage, onNavigate }) {
                 <div className="logo-icon">C</div>
                 Consensus
             </div>
-            <div className="logo-sub">SDG 12 - Responsible Production</div>
             <div className="nav-tabs">
                 {NAV_ITEMS.map((item) => (
                     <button

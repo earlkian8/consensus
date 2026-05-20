@@ -62,14 +62,6 @@ export default function ProductsPage({
                     <div className="empty-icon">[ ]</div>
                     <div className="empty-title">No products yet</div>
                     <div className="empty-sub">Add your first item to start planning.</div>
-                    <Button
-                        className="btn btn-green"
-                        style={{ marginTop: "10px" }}
-                        type="button"
-                        onClick={onOpenCreateProduct}
-                    >
-                        Create product
-                    </Button>
                 </div>
             ) : (
                 <div className="product-grid">
@@ -134,7 +126,13 @@ export default function ProductsPage({
 
                     <div className="modal-scroll">
                         <div className="create-product-grid">
-                            <div className="create-product-preview">
+                            <label className="create-product-preview" style={{ cursor: "pointer" }}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    style={{ display: "none" }}
+                                />
                                 {productDraft.image ? (
                                     <img src={productDraft.image} alt="Product preview" />
                                 ) : (
@@ -143,25 +141,19 @@ export default function ProductsPage({
                                         Upload image
                                     </div>
                                 )}
-                            </div>
+                            </label>
                             <div className="create-product-fields">
-                                <div className="field">
-                                    <label>Image</label>
-                                    <Input
-                                        className="field-input"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageChange}
-                                    />
-                                </div>
                                 <div className="field">
                                     <label>Product name</label>
                                     <Input
                                         className="field-input"
                                         value={productDraft.name}
-                                        onChange={(event) =>
-                                            onDraftChange("name", event.target.value)
-                                        }
+                                        onChange={(event) => {
+                                            const val = event.target.value;
+                                            if (val === "" || /^[a-zA-Z\s]+$/.test(val)) {
+                                                onDraftChange("name", val);
+                                            }
+                                        }}
                                         placeholder="e.g. Chicken Adobo"
                                     />
                                 </div>
@@ -169,12 +161,16 @@ export default function ProductsPage({
                                     <label>Quantity</label>
                                     <Input
                                         className="field-input"
-                                        type="number"
-                                        min="1"
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         value={productDraft.qty}
-                                        onChange={(event) =>
-                                            onDraftChange("qty", event.target.value)
-                                        }
+                                        onChange={(event) => {
+                                            const val = event.target.value;
+                                            if (val === "" || /^\d+$/.test(val)) {
+                                                onDraftChange("qty", val);
+                                            }
+                                        }}
                                         placeholder="e.g. 50"
                                     />
                                 </div>
