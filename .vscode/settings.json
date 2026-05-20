@@ -1,0 +1,10 @@
+{
+  "tailwindCSS.experimental.configFile": "web/src/index.css",
+  "tailwindCSS.includeLanguages": {
+    "javascript": "javascript",
+    "javascriptreact": "javascript"
+  },
+  "editor.quickSuggestions": {
+    "strings": "on"
+  }
+}
