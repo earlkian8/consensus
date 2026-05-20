@@ -13,6 +13,15 @@ export const createPlanningSchema = z.object({
   }),
 });
 
+export const updateDetailExcessSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid detail ID"),
+  }),
+  body: z.object({
+    excess: z.number({ required_error: "Excess is required" }),
+  }),
+});
+
 export const updatePlanningSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid planning ID"),

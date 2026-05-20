@@ -1,9 +1,18 @@
 import * as productPlanningService from './product-planning.service.js';
 
-export const getProductPlanning = async (req, res) => {
+export const getLatestProductPlanning = async (req, res) => {
   try {
-    const planning = await productPlanningService.getProductPlanning();
+    const planning = await productPlanningService.getLatestProductPlanning();
     res.json(planning);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getProductPlanningLogs = async (req, res) => {
+  try {
+    const logs = await productPlanningService.getProductPlanningLogs();
+    res.json(logs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -14,6 +23,18 @@ export const createProductPlanning = async (req, res) => {
     const { date, is_ready_analysis, details } = req.body;
     const planning = await productPlanningService.createProductPlanning({ date, is_ready_analysis, details });
     res.status(201).json(planning);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateProductDetailExcess = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { excess } = req.body;
+    const detail = await productPlanningService.updateProductDetailExcess(id, excess);
+    if (!detail) return res.status(404).json({ error: "Production detail not found" });
+    res.json(detail);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
