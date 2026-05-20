@@ -11,13 +11,13 @@ describe('PRODUCT API ENDPOINTS', () => {
         const postCases = [
             {
                 scenario: 'Successful Product Creation',
-                payload: { name: 'Test Name', image: 'image.png' },
+                payload: { name: 'Test Name', picture: 'image.png' },
                 expectedStatus: 201,
                 expectedMessage: 'Product Created Successfully'
             },
             {
                 scenario: 'Fail when required name field is missing',
-                payload: { image: 'image.png' },
+                payload: { picture: 'image.png' },
                 expectedStatus: 400,
                 expectedError: 'Name is required'
             },
@@ -82,7 +82,7 @@ describe('PRODUCT API ENDPOINTS', () => {
             {
                 scenario: 'Fail when updating with invalid data type',
                 id: validProductId,
-                payload: { price: 'Free' },
+                payload: { picture: 'image.json' },
                 expectedStatus: 400,
                 expectedError: 'Price must be a number'
             },
