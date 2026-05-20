@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/layout/Sidebar";
 import {
     AiInsightsPage,
@@ -717,10 +718,20 @@ function Dashboard() {
         <div className="flex min-h-screen bg-background">
             <SileoToastProvider />
             <Sidebar activePage={page} onNavigate={gotoPage} />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
 
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={page}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+
+            {page === "products" && (
             <ProductsPage
-                active={page === "products"}
+                active={true}
                 products={products}
                 productDraft={productDraft}
                 onDraftChange={updateProductDraft}
@@ -733,9 +744,11 @@ function Dashboard() {
                 onCloseCreateProduct={closeCreateProductModal}
                 onContinue={() => gotoPage("planning")}
             />
+            )}
 
+            {page === "planning" && (
             <PlanningPage
-                active={page === "planning"}
+                active={true}
                 products={products}
                 plans={plans}
                 activePlanId={activePlanId}
@@ -749,18 +762,22 @@ function Dashboard() {
                 onDeletePlan={deletePlan}
                 onGoToProducts={() => gotoPage("products")}
             />
+            )}
 
+            {page === "session" && (
             <SessionPage
-                active={page === "session"}
+                active={true}
                 session={session}
                 productsById={productsById}
                 onEndSessionEarly={endSessionEarly}
                 onGoToPlanning={() => gotoPage("planning")}
                 onGoToAudit={() => gotoPage("audit")}
             />
+            )}
 
+            {page === "audit" && (
             <AuditPage
-                active={page === "audit"}
+                active={true}
                 session={session}
                 productsById={productsById}
                 auditEntries={auditEntries}
@@ -775,9 +792,11 @@ function Dashboard() {
                 onRunAI={runAI}
                 onGoToPlanning={() => gotoPage("planning")}
             />
+            )}
 
+            {page === "ai" && (
             <AiInsightsPage
-                active={page === "ai"}
+                active={true}
                 aiStatus={aiStatus}
                 aiResults={aiResults}
                 session={session}
@@ -787,6 +806,10 @@ function Dashboard() {
                 onApplyChanges={applyChanges}
                 onDismissAI={dismissAI}
             />
+            )}
+
+                </motion.div>
+            </AnimatePresence>
 
             <EndSessionModal
                 open={endModalOpen}
