@@ -1,71 +1,101 @@
-import { pool } from "../../shared/database/pool.js";
+import { supabase } from "../../shared/database/supabase.js";
 
 // Products
 export const getProducts = async () => {
-  const { rows } = await pool.query("SELECT * FROM products ORDER BY created_at DESC");
-  return rows;
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
 };
 
 export const createProduct = async (product) => {
   const { name, picture } = product;
-  const query = `
-    INSERT INTO products (name, picture)
-    VALUES ($1, $2)
-    RETURNING *
-  `;
-  const { rows } = await pool.query(query, [name, picture]);
-  return rows[0];
+
+  const { data, error } = await supabase
+    .from("products")
+    .insert({ name, picture })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const updateProduct = async (id, product) => {
   const { name, picture } = product;
-  const query = `
-    UPDATE products
-    SET name = $1, picture = $2
-    WHERE id = $3
-    RETURNING *
-  `;
-  const { rows } = await pool.query(query, [name, picture, id]);
-  return rows[0];
+
+  const { data, error } = await supabase
+    .from("products")
+    .update({ name, picture })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const deleteProduct = async (id) => {
-  const query = "DELETE FROM products WHERE id = $1 RETURNING *";
-  const { rows } = await pool.query(query, [id]);
-  return rows[0];
+  const { data, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 // Production Plans
 export const getProductPlanning = async () => {
-  const { rows } = await pool.query("SELECT * FROM production_plans ORDER BY date DESC");
-  return rows;
+  const { data, error } = await supabase
+    .from("production_plans")
+    .select("*")
+    .order("date", { ascending: false });
+
+  if (error) throw error;
+  return data;
 };
 
 export const createProductPlanning = async (planning) => {
   const { date, is_ready_analysis } = planning;
-  const query = `
-    INSERT INTO production_plans (date, is_ready_analysis)
-    VALUES ($1, $2)
-    RETURNING *
-  `;
-  const { rows } = await pool.query(query, [date, is_ready_analysis || false]);
-  return rows[0];
+
+  const { data, error } = await supabase
+    .from("production_plans")
+    .insert({ date, is_ready_analysis: is_ready_analysis ?? false })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const updateProductPlanning = async (id, planning) => {
   const { date, is_ready_analysis } = planning;
-  const query = `
-    UPDATE production_plans
-    SET date = $1, is_ready_analysis = $2
-    WHERE id = $3
-    RETURNING *
-  `;
-  const { rows } = await pool.query(query, [date, is_ready_analysis, id]);
-  return rows[0];
+
+  const { data, error } = await supabase
+    .from("production_plans")
+    .update({ date, is_ready_analysis })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const deleteProductPlanning = async (id) => {
-  const query = "DELETE FROM production_plans WHERE id = $1 RETURNING *";
-  const { rows } = await pool.query(query, [id]);
-  return rows[0];
+  const { data, error } = await supabase
+    .from("production_plans")
+    .delete()
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
