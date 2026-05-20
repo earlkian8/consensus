@@ -25,6 +25,7 @@ export const updateDetailExcessSchema = z.object({
       z.object({
         id: z.string().uuid("Invalid detail ID"),
         excess: z.number({ required_error: "Excess is required" }).min(0),
+        condition: z.string().optional(),
       })
     ).min(1, "At least one detail is required"),
   }),

@@ -58,10 +58,10 @@ export const updateProductDetailAmount = async (detailId, amount) => {
 export const updateProductDetailExcess = async (planId, details) => {
   // Bulk update each detail's excess
   const updates = await Promise.all(
-    details.map(({ id, excess }) =>
+    details.map(({ id, excess, condition }) =>
       supabase
         .from("production_details")
-        .update({ excess })
+        .update({ excess, condition: condition ?? null })
         .eq("id", id)
         .select()
         .single()

@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS production_details (
     p_fk UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     amount NUMERIC(10, 2) NOT NULL,
     excess NUMERIC(10, 2) DEFAULT NULL,
+    condition VARCHAR(50) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

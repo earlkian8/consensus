@@ -550,6 +550,27 @@ function Dashboard() {
 
     const runAI = () => {
         if (!session || session.status !== "ended") return;
+
+        // Build details payload from auditEntries mapped to detailIds
+        const plan = plans.find((p) => p.id === session.planId);
+        if (!plan) return;
+
+        const details = plan.items
+            .filter((item) => item.detailId)
+            .map((item) => {
+                const entry = auditEntries[item.productId] || {};
+                return {
+                    id: item.detailId,
+                    excess: Number(entry.excessQty) || 0,
+                    condition: entry.condition || CONDITIONS[0],
+                };
+            });
+
+        if (details.length === 0) {
+            fireToast("error", { title: "No details to submit" });
+            return;
+        }
+
         const auditRows = session.items
             .map((item) => {
                 const product = productsById.get(item.productId);
@@ -568,11 +589,26 @@ function Dashboard() {
         setAiResults(null);
         setApplyNoteVisible(false);
 
-        if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-        aiTimerRef.current = setTimeout(() => {
-            setAiResults(buildAIResults(auditRows));
-            setAiStatus("results");
-        }, 1800);
+        api.submitExcess(session.planId, details)
+            .then(() => {
+                // Reset plan to idle so a new session can be started
+                return api.updatePlanStatus(session.planId, "idle");
+            })
+            .then(() => {
+                setPlans((prev) => prev.map((p) =>
+                    p.id === session.planId ? { ...p, status: "idle" } : p
+                ));
+                if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+                aiTimerRef.current = setTimeout(() => {
+                    setAiResults(buildAIResults(auditRows));
+                    setAiStatus("results");
+                }, 1800);
+            })
+            .catch((err) => {
+                setAiStatus("empty");
+                gotoPage("audit");
+                fireToast("error", { title: "Failed to submit excess", description: err.message });
+            });
     };
 
     const applyChanges = () => {

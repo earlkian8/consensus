@@ -23,5 +23,6 @@ export const api = {
     createPlan: (body) => req("POST", "/product-planning", body),
     updateDetailAmount: (detailId, amount) => req("PATCH", `/product-planning/details/${detailId}/amount`, { amount }),
     updatePlanStatus: (id, status) => req("PATCH", `/product-planning/${id}/status`, { status }),
+    submitExcess: (planId, details) => req("PATCH", `/product-planning/details/${planId}/excess`, { details }),
     deletePlan: (id) => req("DELETE", `/product-planning/${id}`),
 };
