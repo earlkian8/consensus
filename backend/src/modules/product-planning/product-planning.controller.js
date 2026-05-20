@@ -11,8 +11,8 @@ export const getProductPlanning = async (req, res) => {
 
 export const createProductPlanning = async (req, res) => {
   try {
-    const { date, is_ready_analysis } = req.body;
-    const planning = await productPlanningService.createProductPlanning({ date, is_ready_analysis });
+    const { date, is_ready_analysis, details } = req.body;
+    const planning = await productPlanningService.createProductPlanning({ date, is_ready_analysis, details });
     res.status(201).json(planning);
   } catch (error) {
     res.status(500).json({ error: error.message });

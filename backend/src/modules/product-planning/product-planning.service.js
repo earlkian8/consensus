@@ -11,16 +11,24 @@ export const getProductPlanning = async () => {
 };
 
 export const createProductPlanning = async (planning) => {
-  const { date, is_ready_analysis } = planning;
+  const { date, is_ready_analysis, details } = planning;
 
-  const { data, error } = await supabase
+  const { data: plan, error: planError } = await supabase
     .from("production_plans")
     .insert({ date, is_ready_analysis: is_ready_analysis ?? false })
     .select()
     .single();
 
-  if (error) throw error;
-  return data;
+  if (planError) throw planError;
+
+  const { data: planDetails, error: detailsError } = await supabase
+    .from("production_details")
+    .insert(details.map((d) => ({ pp_fk: plan.id, p_fk: d.p_fk, excess: d.excess ?? null })))
+    .select();
+
+  if (detailsError) throw detailsError;
+
+  return { ...plan, details: planDetails };
 };
 
 export const updateProductPlanning = async (id, planning) => {
