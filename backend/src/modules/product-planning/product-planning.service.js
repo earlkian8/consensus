@@ -95,98 +95,73 @@ export const updateProductDetailExcess = async (planId, details) => {
   return { updated: updates.map((r) => r.data), is_ready_analysis: allFilled };
 };
 
+import * as analysisService from "../analysis/analysis.service.js";
+
 const runAnalysis = async (planId) => {
+  // 1. Fetch current plan details and product names
   const { data: currentDetails, error: currentError } = await supabase
     .from("production_details")
-    .select("p_fk, amount, liquid_amount, excess")
+    .select("p_fk, amount, liquid_amount, excess, products(name)")
     .eq("pp_fk", planId);
 
   if (currentError) throw currentError;
 
-  console.log("[runAnalysis] planId:", planId);
-  console.log("[runAnalysis] currentDetails:", JSON.stringify(currentDetails));
+  const { data: plan, error: planError } = await supabase
+    .from("production_plans")
+    .select("date")
+    .eq("id", planId)
+    .single();
 
-  const suggestions = await Promise.all(
-    currentDetails.map(async ({ p_fk, amount, liquid_amount, excess }) => {
-      const { data: history, error: historyError } = await supabase
-        .from("production_details")
-        .select("amount, liquid_amount, excess")
-        .eq("p_fk", p_fk)
-        .not("excess", "is", null)
-        .neq("pp_fk", planId)
-        .order("created_at", { ascending: false })
-        .limit(7);
+  if (planError) throw planError;
 
-      if (historyError) throw historyError;
+  console.log("[runAnalysis] Using Python AI Model for planId:", planId);
 
-      console.log(`[runAnalysis] p_fk=${p_fk} amount=${amount} liquid=${liquid_amount} excess=${excess} history=${JSON.stringify(history)}`);
+  // 2. Map details to the format expected by analysisService
+  const productsToPredict = currentDetails.map(d => ({
+    id: d.p_fk,
+    name: d.products.name
+  }));
 
-      const calcSuggested = (amt, exc, hist) => {
-        const fAmt = parseFloat(amt);
-        const fExc = parseFloat(exc || 0);
-        const sold = fAmt - fExc;
+  // 3. Call the Python Model Service
+  const recommendations = await analysisService.getRecommendations(plan.date, productsToPredict);
 
-        if (!hist || hist.length === 0) {
-          // No history: nudge up 5% if zero excess (sold out), else use sold
-          return fExc === 0 ? Math.round(fAmt * 1.05) : Math.max(1, sold);
-        }
+  // 4. Map recommendations back to production_analysis format
+  const suggestions = recommendations.map(rec => {
+    const detail = currentDetails.find(d => d.p_fk === rec.productId);
+    
+    // If AI fails, fallback to current amount (safety)
+    const suggested = rec.suggestedAmount || parseFloat(detail.amount);
+    
+    // Maintain liquid scaling logic proportional to solid suggestion
+    const suggested_liquid = detail.liquid_amount != null
+      ? parseFloat(detail.amount) > 0
+        ? parseFloat(detail.liquid_amount) * (suggested / parseFloat(detail.amount))
+        : parseFloat(detail.liquid_amount)
+      : null;
 
-        // Weighted average of sold across history (most recent = highest weight)
-        const entries = [{ a: fAmt, e: fExc }, ...hist.map((h) => ({
-          a: parseFloat(h.amount || 0),
-          e: parseFloat(h.excess || 0),
-        }))];
+    return {
+      pp_fk: planId,
+      p_fk: rec.productId,
+      suggested_amount: Math.max(1, parseFloat(suggested.toFixed(2))),
+      suggested_liquid_amount: suggested_liquid != null ? Math.max(0.1, parseFloat(suggested_liquid.toFixed(2))) : null,
+    };
+  });
 
-        let weightedSum = 0, weightTotal = 0;
-        entries.forEach(({ a, e }, i) => {
-          const weight = entries.length - i;
-          weightedSum += (a - e) * weight;
-          weightTotal += weight;
-        });
-        const weightedAvg = weightedSum / weightTotal;
+  console.log("[runAnalysis] AI suggestions:", JSON.stringify(suggestions));
 
-        const avgExcess = entries.reduce((s, { e }) => s + e, 0) / entries.length;
-        const avgAmt = entries.reduce((s, { a }) => s + a, 0) / entries.length;
-        const excessRate = avgAmt > 0 ? avgExcess / avgAmt : 0;
-
-        if (excessRate > 0.2) return weightedAvg * (1 - excessRate * 0.5);
-        if (fExc === 0) return weightedAvg * 1.05;
-        return weightedAvg;
-      };
-
-      const suggested = calcSuggested(amount, excess, history);
-
-      // For liquid: scale proportionally to the solid suggestion ratio
-      // (no separate liquid excess tracked)
-      const suggested_liquid = liquid_amount != null
-        ? parseFloat(amount) > 0
-          ? parseFloat(liquid_amount) * (suggested / parseFloat(amount))
-          : parseFloat(liquid_amount)
-        : null;
-
-      return {
-        pp_fk: planId,
-        p_fk,
-        suggested_amount: Math.max(1, parseFloat(suggested.toFixed(2))),
-        suggested_liquid_amount: suggested_liquid != null ? Math.max(0.1, parseFloat(suggested_liquid.toFixed(2))) : null,
-      };
-    })
-  );
-
-  console.log("[runAnalysis] suggestions:", JSON.stringify(suggestions));
-
-  const { error: insertError } = await supabase
+  // 5. Store results in the database
+  const { error: deleteError } = await supabase
     .from("production_analysis")
     .delete()
     .eq("pp_fk", planId);
 
-  if (insertError) throw insertError;
+  if (deleteError) throw deleteError;
 
-  const { error: insertError2 } = await supabase
+  const { error: insertError } = await supabase
     .from("production_analysis")
     .insert(suggestions);
 
-  if (insertError2) throw insertError2;
+  if (insertError) throw insertError;
 };
 
 export const updatePlanStatus = async (id, status) => {
