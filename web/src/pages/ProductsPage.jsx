@@ -4,6 +4,7 @@ import {
     PackageOpen, Trash2, ImagePlus, Pencil,
     Drumstick, Soup, FlameKindling, Wheat, ChefHat,
     Beef, Waves, Loader2, Search, ChevronLeft, ChevronRight,
+    Package, Layers, UtensilsCrossed,
 } from "lucide-react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
@@ -174,6 +175,43 @@ export default function ProductsPage({
                     <Button size="sm" type="button" onClick={onOpenCreateProduct}>+ Add product</Button>
                 </div>
             </motion.div>
+
+            {/* Stats Cards */}
+            {products.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10">
+                            <Package size={18} className="text-primary" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">{products.length}</div>
+                            <div className="text-[10px] text-muted-foreground">Product{products.length !== 1 ? "s" : ""}</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-accent">
+                            <Layers size={18} className="text-accent-foreground" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">
+                                {products.reduce((sum, p) => sum + (p.qty || 0), 0)}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">Total batch output</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100">
+                            <UtensilsCrossed size={18} className="text-purple-700" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">
+                                {new Set(products.map((p) => p.cat)).size}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">Categories</div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Filters */}
             {products.length > 0 && (
