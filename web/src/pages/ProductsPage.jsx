@@ -126,7 +126,6 @@ export default function ProductsPage({
 
                     <div className="modal-scroll">
                         <div className="create-product-grid">
-<<<<<<< HEAD
                             <label className="create-product-preview" style={{ cursor: "pointer" }}>
                                 <input
                                     type="file"
@@ -134,12 +133,6 @@ export default function ProductsPage({
                                     onChange={handleImageChange}
                                     style={{ display: "none" }}
                                 />
-=======
-                            <label
-                                className="create-product-preview"
-                                htmlFor="product-image-upload"
-                            >
->>>>>>> 8d885ab (Implemented: lucide-react libraries)
                                 {productDraft.image ? (
                                     <img src={productDraft.image} alt="Product preview" />
                                 ) : (
@@ -149,19 +142,6 @@ export default function ProductsPage({
                                     </div>
                                 )}
                             </label>
-<<<<<<< HEAD
-=======
-                            <Input
-                                id="product-image-upload"
-                                className="field-input"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                style={{ display: "none" }}
-                                aria-hidden="true"
-                                tabIndex={-1}
-                            />
->>>>>>> 8d885ab (Implemented: lucide-react libraries)
                             <div className="create-product-fields">
                                 <div className="field">
                                     <label>Product name</label>
