@@ -26,6 +26,7 @@ export default function NewPlanModal({
     onCreate,
 }) {
     const selectAllRef = useRef(null);
+    const nameInputRef = useRef(null);
     const selectedCount = selectedProductIds.length;
     const allSelected = products.length > 0 && selectedCount === products.length;
 
@@ -34,6 +35,18 @@ export default function NewPlanModal({
         selectAllRef.current.indeterminate =
             selectedCount > 0 && selectedCount < products.length;
     }, [selectedCount, products.length]);
+
+    // Prevent auto-select on the plan name input when modal opens
+    useEffect(() => {
+        if (open && nameInputRef.current) {
+            const input = nameInputRef.current;
+            // Move cursor to end instead of selecting all text
+            requestAnimationFrame(() => {
+                const len = input.value.length;
+                input.setSelectionRange(len, len);
+            });
+        }
+    }, [open]);
 
     return (
         <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
@@ -50,9 +63,18 @@ export default function NewPlanModal({
                         <div className="flex flex-col gap-1 flex-2 min-w-22.5">
                             <label className="text-[11px] font-semibold text-muted-foreground">Plan name</label>
                             <Input
+                                ref={nameInputRef}
                                 className="h-8.5 text-[13px] bg-background"
                                 value={planName}
                                 onChange={(event) => onChangeName(event.target.value)}
+                                onFocus={(e) => {
+                                    // Prevent browser auto-select behavior
+                                    const input = e.target;
+                                    requestAnimationFrame(() => {
+                                        const len = input.value.length;
+                                        input.setSelectionRange(len, len);
+                                    });
+                                }}
                                 placeholder="e.g. Plan A - Weekday Lunch"
                             />
                         </div>

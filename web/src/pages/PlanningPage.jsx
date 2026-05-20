@@ -10,11 +10,9 @@ function formatTimeTo12Hour(time24) {
     if (!time24) return "";
     const [hourStr, minuteStr] = time24.split(":");
     let hour = Number(hourStr);
-    const minute = minuteStr;
     const period = hour >= 12 ? "PM" : "AM";
-    hour = hour % 12;
-    if (hour === 0) hour = 12;
-    return `${hour}:${minute} ${period}`;
+    hour = hour % 12 || 12;
+    return `${hour}:${minuteStr} ${period}`;
 }
 
 function PlanCard({ plan, index, planLetters, session, productsById, activePlanId, onTogglePlan, onUpdatePlanQty, onProceedWithPlan, onDeletePlan, readonly }) {
@@ -24,7 +22,7 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
     const isOpen = activePlanId === plan.id;
 
     return (
-        <Card className={`p-0 overflow-hidden transition-colors shadow-sm ${isOpen ? "border-primary" : "border-border"}`} key={plan.id}>
+        <Card className={`p-0 overflow-hidden transition-colors shadow-sm ${isOpen ? "border-primary" : "border-border"}`}>
             <div
                 className="flex items-center gap-2.5 p-3.5 cursor-pointer hover:bg-secondary/50 select-none"
                 onClick={() => onTogglePlan(plan.id)}
@@ -40,10 +38,10 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                 <div className="flex-1">
                     <div className="text-sm font-bold text-foreground">{plan.name}</div>
                     <div className="text-[11px] text-muted-foreground flex flex-wrap gap-1.5 items-center mt-0.5">
-                        {totalItems} products - ends {formatTimeTo12Hour(plan.endTime)}
+                        {totalItems} product{totalItems !== 1 ? "s" : ""} — ends {formatTimeTo12Hour(plan.endTime)}
+                        {plan.date && <span className="text-[10px]">{plan.date}</span>}
                         {isActive && <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-2 py-0">Active</Badge>}
                         {plan.status === "ended" && <Badge variant="secondary" className="bg-secondary text-muted-foreground text-[10px] px-2 py-0">Ended</Badge>}
-                        {plan.date && <span className="text-[10px] text-muted-foreground">{plan.date}</span>}
                     </div>
                 </div>
                 <CircleFadingArrowUp className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -70,9 +68,10 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                                     const product = productsById.get(item.productId);
                                     if (!product) return null;
                                     const hasLiquid = product.unit_liquid && item.liquidQty != null;
+                                    const isLast = i === plan.items.length - 1;
                                     return (
                                         <React.Fragment key={item.productId}>
-                                            <tr className={i !== plan.items.length - 1 && !hasLiquid ? "border-b border-secondary" : ""}>
+                                            <tr className={!hasLiquid && !isLast ? "border-b border-secondary" : ""}>
                                                 <td className="py-2 px-2 align-middle" rowSpan={hasLiquid ? 2 : 1}>
                                                     <b className="font-bold">{product.name}</b>{" "}
                                                     <span className="text-[10px] text-muted-foreground">{product.cat}</span>
@@ -98,7 +97,7 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                                                 )}
                                             </tr>
                                             {hasLiquid && (
-                                                <tr className={i !== plan.items.length - 1 ? "border-b border-secondary" : ""}>
+                                                <tr className={!isLast ? "border-b border-secondary" : ""}>
                                                     <td className="py-2 px-2 align-middle text-right">{item.liquidQty}</td>
                                                     <td className="py-2 px-2 align-middle">{product.unit_liquid}</td>
                                                     {!readonly && (
@@ -122,17 +121,16 @@ function PlanCard({ plan, index, planLetters, session, productsById, activePlanI
                             </tbody>
                         </table>
                     </div>
+
                     {!readonly && (
                         <div className="mt-3.5 flex flex-col sm:flex-row gap-2">
-                            {!isActive && plan.status === "idle" ? (
+                            {plan.status === "idle" && !isActive && (
                                 <Button type="button" onClick={() => onProceedWithPlan(plan.id)}>
                                     Proceed with {plan.name}
                                 </Button>
-                            ) : isActive ? (
-                                <Button disabled type="button">Session in progress</Button>
-                            ) : plan.status === "ended" ? (
-                                <Button disabled type="button">Session ended</Button>
-                            ) : null}
+                            )}
+                            {isActive && <Button disabled type="button">Session in progress</Button>}
+                            {plan.status === "ended" && <Button disabled type="button">Session ended</Button>}
                             <Button variant="destructive" size="sm" type="button" onClick={() => onDeletePlan(plan.id)}>
                                 Delete plan
                             </Button>
@@ -164,7 +162,7 @@ export default function PlanningPage({
     const activePlans = plans.filter((p) => p.status !== "ended");
     const endedPlans = plans.filter((p) => p.status === "ended");
     const latestPlan = activePlans[activePlans.length - 1] ?? null;
-    const latestIndex = plans.indexOf(latestPlan);
+    const latestIndex = latestPlan ? plans.indexOf(latestPlan) : 0;
 
     return (
         <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
@@ -175,11 +173,12 @@ export default function PlanningPage({
                         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
                             <SheetTrigger asChild>
                                 <Button size="sm" variant="outline" type="button">
-                                    <History size={14} className="mr-1.5" /> History {endedPlans.length > 0 ? `(${endedPlans.length})` : ""}
+                                    <History size={14} className="mr-1.5" />
+                                    History{endedPlans.length > 0 ? ` (${endedPlans.length})` : ""}
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-                                <SheetHeader className="mb-4">
+                            <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto p-4">
+                                <SheetHeader className="mb-4 p-0">
                                     <SheetTitle>Plan history</SheetTitle>
                                 </SheetHeader>
                                 <div className="flex flex-col gap-3">
@@ -214,8 +213,7 @@ export default function PlanningPage({
                 </div>
             </div>
             <p className="text-xs text-muted-foreground mb-4.5 leading-relaxed">
-                Create named plans and choose which products to include. Each plan tracks
-                AI suggested changes over time.
+                Create named plans and choose which products to include. Each plan tracks AI suggested changes over time.
             </p>
 
             {products.length === 0 ? (
@@ -223,7 +221,7 @@ export default function PlanningPage({
                     <div className="text-3xl mb-2">[?]</div>
                     <div className="text-[13px] font-semibold text-foreground mb-1">No products yet</div>
                     <div className="text-[11px] leading-relaxed">Go to the Products tab first.</div>
-                    <Button className="mt-3" type="button" onClick={onGoToProducts}>Go to Products &gt;</Button>
+                    <Button className="mt-3" type="button" onClick={onGoToProducts}>Go to Products →</Button>
                 </div>
             ) : !latestPlan ? (
                 <div className="text-center py-7 px-3.5 text-muted-foreground">
