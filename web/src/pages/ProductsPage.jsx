@@ -171,14 +171,6 @@ export default function ProductsPage({
                                                 </span>
                                             )}
                                         </div>
-                                        {product.cost > 0 && (
-                                            <span className="text-[10px] font-semibold text-muted-foreground">
-                                                ₱{product.cost} / {product.unit}
-                                            </span>
-                                        )}
-                                        {product.notes ? (
-                                            <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2">{product.notes}</p>
-                                        ) : null}
                                     </div>
                                 </div>
                             );
@@ -243,30 +235,6 @@ export default function ProductsPage({
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                    </Field>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Field label="Price per portion (₱)">
-                                        <Input
-                                            className="h-10 text-sm"
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={productDraft.price_per_portion}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val === "" || /^\d*\.?\d*$/.test(val)) onDraftChange("price_per_portion", val);
-                                            }}
-                                            placeholder="e.g. 120"
-                                        />
-                                    </Field>
-                                    <Field label="Notes">
-                                        <Input
-                                            className="h-10 text-sm"
-                                            value={productDraft.notes}
-                                            onChange={(e) => onDraftChange("notes", e.target.value)}
-                                            placeholder="e.g. Morning only"
-                                        />
                                     </Field>
                                 </div>
                             </div>
