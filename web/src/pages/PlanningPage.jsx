@@ -1,9 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Input } from "@/components/shadcnUI/input";
 import { Card } from "@/components/shadcnUI/card";
-import { CircleFadingArrowUp } from "lucide-react";
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/shadcnUI/alert-dialog";
+import { CircleFadingArrowUp, Trash2, ClipboardList, Package, Zap, Plus } from "lucide-react";
 
 function formatTimeTo12Hour(time24) {
     if (!time24) return "";
@@ -31,35 +35,82 @@ export default function PlanningPage({
     onDeletePlan,
     onGoToProducts,
 }) {
+    const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [proceedConfirmId, setProceedConfirmId] = useState(null);
+
+    const totalProducts = plans.reduce((sum, p) => sum + p.items.length, 0);
+    const totalSessions = plans.reduce((sum, p) => sum + p.sessions.length, 0);
+    const hasActiveSession = session && session.status === "active";
+
     return (
         <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             <div className="flex items-center justify-between mb-1">
                 <h1 className="text-xl font-bold text-foreground">Production plans</h1>
-                <Button size="sm" type="button" onClick={onOpenNewPlanModal}>
-                    + New plan
-                </Button>
             </div>
-            <p className="text-xs text-muted-foreground mb-4.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
                 Create named plans and choose which products to include. Each plan tracks
                 AI suggested changes over time.
             </p>
 
+            {/* Summary Stats */}
+            {plans.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10">
+                            <ClipboardList size={18} className="text-primary" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">{plans.length}</div>
+                            <div className="text-[10px] text-muted-foreground">Plan{plans.length !== 1 ? "s" : ""}</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-accent">
+                            <Package size={18} className="text-accent-foreground" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">{totalProducts}</div>
+                            <div className="text-[10px] text-muted-foreground">Total items</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100">
+                            <Zap size={18} className="text-purple-700" />
+                        </div>
+                        <div>
+                            <div className="text-lg font-bold text-foreground">{totalSessions}</div>
+                            <div className="text-[10px] text-muted-foreground">Session{totalSessions !== 1 ? "s" : ""} run</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {products.length === 0 ? (
-                <div className="text-center py-7 px-3.5 text-muted-foreground">
-                    <div className="text-3xl mb-2">[?]</div>
-                    <div className="text-[13px] font-semibold text-foreground mb-1">No products yet</div>
-                    <div className="text-[11px] leading-relaxed">Go to the Products tab first.</div>
-                    <Button className="mt-3" type="button" onClick={onGoToProducts}>
-                        Go to Products -&gt;
+                <div className="text-center py-12 px-3.5">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4">
+                        <Package size={28} className="text-muted-foreground" />
+                    </div>
+                    <div className="text-sm font-semibold text-foreground mb-1">No products yet</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed mb-4">
+                        Add products to your catalog before creating a plan.
+                    </div>
+                    <Button type="button" onClick={onGoToProducts}>
+                        Go to Products →
                     </Button>
                 </div>
             ) : plans.length === 0 ? (
-                <div className="text-center py-7 px-3.5 text-muted-foreground">
-                    <div className="text-3xl mb-2">[+]</div>
-                    <div className="text-[13px] font-semibold text-foreground mb-1">No plans yet</div>
-                    <div className="text-[11px] leading-relaxed">
-                        Click "+ New plan" to create your first production plan.
+                <div className="text-center py-12 px-3.5">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mx-auto mb-4">
+                        <ClipboardList size={28} className="text-primary" />
                     </div>
+                    <div className="text-sm font-semibold text-foreground mb-1">No plans yet</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed mb-4">
+                        Create your first production plan to start tracking output and AI recommendations.
+                    </div>
+                    <Button type="button" onClick={onOpenNewPlanModal}>
+                        <Plus size={14} />
+                        Create first plan
+                    </Button>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
@@ -76,11 +127,12 @@ export default function PlanningPage({
 
                         return (
                             <Card
-                                className={`p-0 overflow-hidden transition-colors shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300 ${isOpen ? "border-primary" : "border-border"}`}
+                                className={`p-0 overflow-hidden transition-all shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300 border-l-4 ${isOpen ? "border-l-primary border-border" : "border-border"}`}
+                                style={{ borderLeftColor: plan.color }}
                                 key={plan.id}
                             >
                                 <div
-                                    className="flex items-center gap-2.5 p-3.5 cursor-pointer hover:bg-secondary/50 select-none"
+                                    className="flex items-center gap-2.5 p-3.5 cursor-pointer hover:bg-secondary/50 select-none transition-colors"
                                     onClick={() => onTogglePlan(plan.id)}
                                     role="button"
                                     tabIndex={0}
@@ -94,9 +146,12 @@ export default function PlanningPage({
                                     <div className="flex-1">
                                         <div className="text-sm font-bold text-foreground">{plan.name}</div>
                                         <div className="text-[11px] text-muted-foreground flex flex-wrap gap-1.5 items-center mt-0.5">
-                                            {totalItems} products - ends {formatTimeTo12Hour(plan.endTime)}
+                                            {totalItems} product{totalItems !== 1 ? "s" : ""} · ends {formatTimeTo12Hour(plan.endTime)}
                                             {isActive && (
-                                                <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-2 py-0">Active</Badge>
+                                                <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] px-2 py-0">
+                                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse mr-1" />
+                                                    Active
+                                                </Badge>
                                             )}
                                             {!isActive && sessionCount > 0 && (
                                                 <Badge variant="secondary" className="bg-secondary text-muted-foreground text-[10px] px-2 py-0">
@@ -129,7 +184,6 @@ export default function PlanningPage({
                                                         <th className="text-center py-1.5 px-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">History</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody>
                                                     {plan.items.map((item, i) => {
                                                         const product = productsById.get(item.productId);
                                                         if (!product) return null;
@@ -153,7 +207,7 @@ export default function PlanningPage({
                                                         ));
 
                                                         return (
-                                                            <React.Fragment key={item.productId}>
+                                                            <tbody key={item.productId} className="group/row hover:bg-secondary/40 transition-colors">
                                                                 <tr className={!product.unit_liquid && i !== plan.items.length - 1 ? "border-b border-secondary" : ""}>
                                                                     <td className="py-2 px-2 align-middle" rowSpan={product.unit_liquid ? 2 : 1}>
                                                                         <b className="font-bold">{product.name}</b>{" "}
@@ -193,10 +247,9 @@ export default function PlanningPage({
                                                                         </td>
                                                                     </tr>
                                                                 )}
-                                                            </React.Fragment>
+                                                            </tbody>
                                                         );
                                                     })}
-                                                </tbody>
                                             </table>
                                         </div>
                                         {hasAI && (
@@ -205,6 +258,7 @@ export default function PlanningPage({
                                             </div>
                                         )}
                                         <div className="mt-3.5 flex flex-col sm:flex-row gap-2">
+<<<<<<< Updated upstream
                                             {!isActive && plan.status === "idle" ? (
                                                 <Button type="button" onClick={() => onProceedWithPlan(plan.id)}>
                                                     Proceed with {plan.name}
@@ -215,6 +269,17 @@ export default function PlanningPage({
                                                 <Button disabled type="button">Session ended</Button>
                                             ) : null}
                                             <Button variant="destructive" size="sm" type="button" onClick={() => onDeletePlan(plan.id)}>
+=======
+                                            {!isActive ? (
+                                                <Button type="button" onClick={() => setProceedConfirmId(plan.id)}>
+                                                    Proceed with {plan.name}
+                                                </Button>
+                                            ) : (
+                                                <Button disabled type="button">Session already active</Button>
+                                            )}
+                                            <Button variant="destructive" size="sm" type="button" onClick={() => setDeleteConfirmId(plan.id)} className="gap-1.5">
+                                                <Trash2 size={13} />
+>>>>>>> Stashed changes
                                                 Delete plan
                                             </Button>
                                         </div>
@@ -225,6 +290,53 @@ export default function PlanningPage({
                     })}
                 </div>
             )}
+
+            {/* Proceed confirmation */}
+            <AlertDialog open={proceedConfirmId !== null} onOpenChange={(open) => !open && setProceedConfirmId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Start session?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will begin a production session with this plan. The session will run until the scheduled end time.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                onProceedWithPlan(proceedConfirmId);
+                                setProceedConfirmId(null);
+                            }}
+                        >
+                            Start session
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Delete confirmation */}
+            <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete plan?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently remove the plan and its configuration. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            variant="destructive"
+                            onClick={() => {
+                                onDeletePlan(deleteConfirmId);
+                                setDeleteConfirmId(null);
+                            }}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

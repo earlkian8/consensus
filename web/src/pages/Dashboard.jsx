@@ -341,7 +341,7 @@ function Dashboard() {
         const nextIndex = plans.length;
         setNewPlanName(`Plan ${PLAN_LETTERS[nextIndex % PLAN_LETTERS.length]}`);
         setNewPlanEndTime("17:00");
-        setSelectedProductIds([]);
+        setSelectedProductIds(products.map((p) => p.id));
         setNewPlanOpen(true);
     };
 
@@ -427,7 +427,6 @@ function Dashboard() {
     };
 
     const deletePlan = (id) => {
-        if (!window.confirm("Delete this plan?")) return;
         setPlans((prev) => prev.filter((plan) => plan.id !== id));
         setActivePlanId((prev) => (prev === id ? null : prev));
         api.deletePlan(id)

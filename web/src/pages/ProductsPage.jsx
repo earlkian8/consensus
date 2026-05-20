@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     PackageOpen, Trash2, ImagePlus, Pencil,
     Drumstick, Soup, FlameKindling, Wheat, ChefHat,
-    Beef, Waves, Loader2,
+    Beef, Waves, Loader2, Search, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
@@ -22,15 +22,16 @@ import {
 import { PRODUCT_CATEGORIES, DISH_TYPES, DISH_TYPE_UNITS } from "@/lib/consensus-data";
 
 const DISH_TYPE_ICONS = { Drumstick, Soup, FlameKindling, Wheat, ChefHat };
+const ITEMS_PER_PAGE = 15;
 
 const EMPTY_ERRORS = {
     name: "", dish_type: "", batch_solid_count: "", batch_liquid_volume: "",
 };
 
 const cardVariants = {
-    hidden: { opacity: 0, scale: 0.92, y: 16 },
-    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
-    exit: { opacity: 0, scale: 0.88, y: -8, transition: { duration: 0.18 } },
+    hidden: { opacity: 0, scale: 0.95, y: 12 },
+    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 320, damping: 26 } },
+    exit: { opacity: 0, scale: 0.92, y: -6, transition: { duration: 0.15 } },
 };
 
 export default function ProductsPage({
@@ -41,6 +42,49 @@ export default function ProductsPage({
     const [errors, setErrors] = useState(EMPTY_ERRORS);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
+    // Filters, sorting, pagination
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortOrder, setSortOrder] = useState("a-z");
+    const [filterCategory, setFilterCategory] = useState("all");
+    const [filterDishType, setFilterDishType] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const filteredProducts = useMemo(() => {
+        let result = [...products];
+
+        // Search
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter((p) => p.name.toLowerCase().includes(q));
+        }
+
+        // Category filter
+        if (filterCategory !== "all") {
+            result = result.filter((p) => p.cat === filterCategory);
+        }
+
+        // Dish type filter
+        if (filterDishType !== "all") {
+            result = result.filter((p) => p.dish_type === filterDishType);
+        }
+
+        // Sort
+        if (sortOrder === "a-z") {
+            result.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortOrder === "z-a") {
+            result.sort((a, b) => b.name.localeCompare(a.name));
+        }
+
+        return result;
+    }, [products, searchQuery, sortOrder, filterCategory, filterDishType]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const paginatedProducts = filteredProducts.slice(
+        (safeCurrentPage - 1) * ITEMS_PER_PAGE,
+        safeCurrentPage * ITEMS_PER_PAGE
+    );
 
     const dt = productDraft.dish_type;
     const needsSolid = dt && dt !== "SOUP_STEW";
@@ -77,12 +121,13 @@ export default function ProductsPage({
         if (!validate() || submitting) return;
         const isEdit = !!productDraft._editId;
         setSubmitting(true);
-        // Close modal immediately — optimistic
         setErrors(EMPTY_ERRORS);
         onCloseCreateProduct();
-        const result = isEdit ? onSaveEditedProduct() : onAddProduct();
-        // result is a promise from Dashboard
-        Promise.resolve(result).finally(() => setSubmitting(false));
+        // Delay product creation so modal exit animation completes before card + toast appear
+        setTimeout(() => {
+            const result = isEdit ? onSaveEditedProduct() : onAddProduct();
+            Promise.resolve(result).finally(() => setSubmitting(false));
+        }, 200);
     };
 
     const handleClose = () => {
@@ -92,19 +137,19 @@ export default function ProductsPage({
     };
 
     return (
-        <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
+        <div className={`max-w-6xl mx-auto px-6 py-5 ${active ? "block" : "hidden"}`}>
 
             {/* Header */}
             <motion.div
-                className="flex items-start justify-between gap-4 mb-6"
-                initial={{ opacity: 0, y: -10 }}
+                className="flex items-center justify-between gap-4 mb-4"
+                initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.25 }}
             >
                 <div>
-                    <h1 className="text-xl font-bold text-foreground mb-1">Product catalog</h1>
-                    <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
-                        Add every dish or item your kitchen produces. These will appear as options when creating a production plan.
+                    <h1 className="text-lg font-bold text-foreground">Product catalog</h1>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Manage your kitchen's dishes. These appear as options in production plans.
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -114,42 +159,109 @@ export default function ProductsPage({
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.15 }}
-                            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-background border rounded-full px-2.5 py-1"
+                            transition={{ duration: 0.12 }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/60 border rounded-full px-2.5 py-0.5"
                         >
-                            {products.length} item{products.length !== 1 ? "s" : ""}
+                            {products.length}
                         </motion.span>
                     </AnimatePresence>
-                    <Button type="button" onClick={onOpenCreateProduct}>+ Create product</Button>
+                    {products.length > 0 && (
+                        <Button variant="ghost" size="sm" type="button" onClick={onContinue} className="gap-1 text-xs text-muted-foreground hover:text-foreground">
+                            Planning
+                            <ChevronRight size={14} />
+                        </Button>
+                    )}
+                    <Button size="sm" type="button" onClick={onOpenCreateProduct}>+ Add product</Button>
                 </div>
             </motion.div>
 
-            {/* Empty state */}
+            {/* Filters */}
+            {products.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="relative flex-1 min-w-[180px] max-w-xs">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input
+                            className="h-8 text-xs pl-8 bg-background"
+                            placeholder="Search products..."
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                        />
+                    </div>
+                    <Select value={sortOrder} onValueChange={(v) => { setSortOrder(v); setCurrentPage(1); }}>
+                        <SelectTrigger className="h-8 text-xs w-[100px] bg-background">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                            <SelectItem value="a-z" className="text-xs">A → Z</SelectItem>
+                            <SelectItem value="z-a" className="text-xs">Z → A</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setCurrentPage(1); }}>
+                        <SelectTrigger className="h-8 text-xs w-[130px] bg-background">
+                            <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                            <SelectItem value="all" className="text-xs">All categories</SelectItem>
+                            {PRODUCT_CATEGORIES.map((c) => (
+                                <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={filterDishType} onValueChange={(v) => { setFilterDishType(v); setCurrentPage(1); }}>
+                        <SelectTrigger className="h-8 text-xs w-[130px] bg-background">
+                            <SelectValue placeholder="Dish type" />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                            <SelectItem value="all" className="text-xs">All types</SelectItem>
+                            {DISH_TYPES.map((d) => (
+                                <SelectItem key={d.key} value={d.key} className="text-xs">{d.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
+            {/* Content */}
             <AnimatePresence mode="wait">
                 {products.length === 0 ? (
                     <motion.div
                         key="empty"
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.25 }}
-                        className="flex flex-col items-center justify-center py-20 gap-4 text-center"
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex flex-col items-center justify-center py-16 gap-3 text-center"
                     >
-                        <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center">
-                            <PackageOpen size={28} className="text-muted-foreground" />
-                        </div>
+                        <motion.div
+                            animate={{ y: [0, -4, 0] }}
+                            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                            className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center"
+                        >
+                            <PackageOpen size={24} className="text-muted-foreground" />
+                        </motion.div>
                         <div>
-                            <div className="text-sm font-semibold text-foreground mb-1">No products yet</div>
-                            <div className="text-xs text-muted-foreground leading-relaxed">
-                                Add your first item to start building a production plan.
+                            <div className="text-sm font-semibold text-foreground mb-0.5">No products yet</div>
+                            <div className="text-xs text-muted-foreground">
+                                Click "+ Add product" to get started.
                             </div>
                         </div>
                     </motion.div>
+                ) : filteredProducts.length === 0 ? (
+                    <motion.div
+                        key="no-results"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col items-center justify-center py-12 gap-2 text-center"
+                    >
+                        <Search size={20} className="text-muted-foreground" />
+                        <div className="text-sm text-muted-foreground">No products match your filters.</div>
+                    </motion.div>
                 ) : (
                     <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3.5 mb-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                             <AnimatePresence>
-                                {products.map((product) => {
+                                {paginatedProducts.map((product) => {
                                     const dishType = DISH_TYPES.find((d) => d.key === product.dish_type);
                                     const DishIcon = dishType ? DISH_TYPE_ICONS[dishType.icon] : null;
                                     return (
@@ -158,60 +270,68 @@ export default function ProductsPage({
                                             layout
                                             variants={cardVariants}
                                             initial="hidden"
-                                            animate={product._saving ? "hidden" : "visible"}
+                                            animate="visible"
                                             exit="exit"
-                                            className={`group bg-card border rounded-2xl p-3 flex flex-col gap-2.5 shadow-sm relative transition-shadow hover:shadow-md hover:border-primary/30 ${product._saving ? "opacity-60 pointer-events-none" : ""}`}
+                                            className={`group bg-card border rounded-xl p-2.5 flex flex-col gap-2 shadow-sm relative transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:scale-[1.02] ${product._saving ? "opacity-60 pointer-events-none" : ""}`}
                                         >
                                             {product._saving && (
-                                                <div className="absolute inset-0 rounded-2xl bg-background/60 flex items-center justify-center z-20 backdrop-blur-[1px]">
-                                                    <Loader2 size={20} className="animate-spin text-primary" />
+                                                <div className="absolute inset-0 rounded-xl bg-background/60 flex items-center justify-center z-20 backdrop-blur-[1px]">
+                                                    <Loader2 size={18} className="animate-spin text-primary" />
                                                 </div>
                                             )}
 
-                                            <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Action buttons — slide in from right */}
+                                            <div className="absolute top-2 right-2 z-10 flex items-center gap-1 translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-200">
                                                 <motion.button
                                                     type="button"
-                                                    whileTap={{ scale: 0.88 }}
+                                                    whileTap={{ scale: 0.85 }}
                                                     onClick={() => onEditProduct(product.id)}
-                                                    className="w-6 h-6 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center cursor-pointer"
-                                                    title="Edit product"
+                                                    className="w-6 h-6 rounded-full bg-white/90 shadow-sm border flex items-center justify-center cursor-pointer hover:bg-primary/10"
+                                                    title="Edit"
                                                 >
-                                                    <Pencil size={12} className="text-primary" />
+                                                    <Pencil size={11} className="text-primary" />
                                                 </motion.button>
                                                 <motion.button
                                                     type="button"
-                                                    whileTap={{ scale: 0.88 }}
+                                                    whileTap={{ scale: 0.85 }}
                                                     onClick={() => setDeleteConfirmId(product.id)}
-                                                    className="w-6 h-6 rounded-full bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center cursor-pointer"
-                                                    title="Remove product"
+                                                    className="w-6 h-6 rounded-full bg-white/90 shadow-sm border flex items-center justify-center cursor-pointer hover:bg-destructive/10"
+                                                    title="Delete"
                                                 >
-                                                    <Trash2 size={12} className="text-destructive" />
+                                                    <Trash2 size={11} className="text-destructive" />
                                                 </motion.button>
                                             </div>
 
-                                            <div className="relative rounded-xl overflow-hidden aspect-4/3 bg-linear-to-br from-primary/10 to-orange-500/10 border border-black/5">
+                                            {/* Image area */}
+                                            <div className="relative rounded-lg overflow-hidden aspect-4/3 bg-linear-to-br from-primary/8 to-orange-500/8 border border-black/5">
                                                 {product.image ? (
-                                                    <img src={product.image} alt={product.name} className="w-full h-full object-cover block" />
+                                                    <>
+                                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover block" />
+                                                        <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
+                                                    </>
                                                 ) : (
-                                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                                                        <div className="text-2xl font-bold text-muted-foreground bg-white/70 rounded-lg px-3 py-2 border border-black/5">
-                                                            {product.name ? product.name[0].toUpperCase() : "?"}
-                                                        </div>
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        {DishIcon ? (
+                                                            <DishIcon size={28} className="text-muted-foreground/40" />
+                                                        ) : (
+                                                            <span className="text-xl font-bold text-muted-foreground/40">
+                                                                {product.name?.[0]?.toUpperCase() || "?"}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 )}
-                                                <div className="absolute right-2 bottom-2 px-2 py-1 bg-white/90 border rounded-full text-[10px] font-bold text-foreground shadow-sm backdrop-blur-sm">
+                                                <div className="absolute right-1.5 bottom-1.5 px-1.5 py-0.5 bg-white/90 border rounded-full text-[9px] font-bold text-foreground shadow-sm backdrop-blur-sm">
                                                     {product.qty} {product.unit}
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="text-[13px] font-bold text-foreground pr-5">{product.name}</div>
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <Badge variant="secondary" className="text-[10px]">{product.cat}</Badge>
-                                                    {DishIcon && (
-                                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                                            <DishIcon size={11} />{dishType.label}
-                                                        </span>
+                                            {/* Info */}
+                                            <div className="flex flex-col gap-1 min-h-0">
+                                                <div className="text-xs font-bold text-foreground leading-tight line-clamp-1">{product.name}</div>
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{product.cat}</Badge>
+                                                    {dishType && (
+                                                        <span className="text-[9px] text-muted-foreground">{dishType.label}</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -220,9 +340,33 @@ export default function ProductsPage({
                                 })}
                             </AnimatePresence>
                         </div>
-                        <Button className="w-full justify-center" type="button" onClick={onContinue}>
-                            Continue to Planning →
-                        </Button>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="mt-4 flex items-center justify-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={safeCurrentPage <= 1}
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                    className="h-7 w-7 p-0"
+                                >
+                                    <ChevronLeft size={14} />
+                                </Button>
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                    {safeCurrentPage} / {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={safeCurrentPage >= totalPages}
+                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                    className="h-7 w-7 p-0"
+                                >
+                                    <ChevronRight size={14} />
+                                </Button>
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -239,14 +383,19 @@ export default function ProductsPage({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto px-7 py-6 flex flex-col gap-6">
+                    <div className="flex-1 overflow-y-auto scroll-smooth px-7 py-6 flex flex-col gap-6">
 
                         {/* Image + basic fields */}
                         <div className="grid grid-cols-[120px_1fr] gap-5 items-start">
-                            <label className="w-full aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-muted hover:border-primary/40 transition-all group/upload">
+                            <label className="w-full aspect-square rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-muted hover:border-primary/40 transition-all group/upload relative">
                                 <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                                 {productDraft.image ? (
-                                    <img src={productDraft.image} alt="Product preview" className="w-full h-full object-cover block" />
+                                    <>
+                                        <img src={productDraft.image} alt="Product preview" className="w-full h-full object-cover block" />
+                                        <div className="absolute inset-0 bg-black/0 group-hover/upload:bg-black/40 transition-colors flex items-center justify-center">
+                                            <span className="text-white text-[10px] font-semibold opacity-0 group-hover/upload:opacity-100 transition-opacity">Change</span>
+                                        </div>
+                                    </>
                                 ) : (
                                     <div className="flex flex-col items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground group-hover/upload:text-foreground transition-colors">
                                         <ImagePlus size={20} />
@@ -303,12 +452,17 @@ export default function ProductsPage({
                                             type="button"
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => handleDishTypeSelect(dishType.key)}
-                                            className={`flex flex-col items-center text-center gap-1.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+                                            className={`flex flex-col items-center text-center gap-1.5 p-3.5 rounded-xl border-2 transition-all cursor-pointer relative ${
                                                 selected
                                                     ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
                                                     : "border-transparent bg-muted/40 hover:bg-muted hover:border-border"
                                             }`}
                                         >
+                                            {selected && (
+                                                <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5.5L4 7.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                                </div>
+                                            )}
                                             {Icon && <Icon size={20} className={selected ? "text-primary" : "text-muted-foreground"} />}
                                             <span className={`text-xs font-semibold leading-tight ${selected ? "text-primary" : "text-foreground"}`}>
                                                 {dishType.label}
@@ -407,7 +561,7 @@ export default function ProductsPage({
                                                         }}
                                                         placeholder="e.g. 5"
                                                     />
-                                                    <span className="text-sm text-muted-foreground font-medium">liters</span>
+                                                    <span className="text-sm text-muted-foreground font-medium">L</span>
                                                 </div>
                                             </Field>
                                         </div>
@@ -439,7 +593,7 @@ export default function ProductsPage({
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete product?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently remove the product from your catalog and any linked plans. This action cannot be undone.
+                            This will permanently remove the product from your catalog and any linked plans.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
