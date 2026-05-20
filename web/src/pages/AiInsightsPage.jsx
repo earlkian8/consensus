@@ -1,3 +1,4 @@
+import React from "react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Card } from "@/components/shadcnUI/card";
@@ -121,22 +122,42 @@ export default function AiInsightsPage({
                         </div>
                         <div className="flex flex-col gap-1.5 mb-3">
                             {aiResults.rows.map((row) => (
-                                <div className="flex items-center gap-2.5 px-3 py-2 border rounded-lg bg-background" key={row.name}>
-                                    <div className="text-xs font-semibold flex-[1.5]">{row.name}</div>
-                                    <div className="text-xs flex-1 text-right text-muted-foreground">
-                                        {row.planned} {"->"} <b className="text-foreground">{row.newQty}</b> {row.unit}
+                                <React.Fragment key={row.name}>
+                                    <div className="flex items-center gap-2.5 px-3 py-2 border rounded-lg bg-background">
+                                        <div className="text-xs font-semibold flex-[1.5]">{row.name}</div>
+                                        <div className="text-xs flex-1 text-right text-muted-foreground">
+                                            {row.planned} {"->"} <b className="text-foreground">{row.newQty}</b> {row.unit}
+                                        </div>
+                                        <div>
+                                            <Badge
+                                                variant="secondary"
+                                                className={`${row.dir === "down" ? "bg-destructive/10 text-destructive" :
+                                                    row.dir === "up" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
+                                                    }`}
+                                            >
+                                                {row.dir}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <Badge
-                                            variant="secondary"
-                                            className={`${row.dir === "down" ? "bg-destructive/10 text-destructive" :
-                                                row.dir === "up" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
-                                                }`}
-                                        >
-                                            {row.dir}
-                                        </Badge>
-                                    </div>
-                                </div>
+                                    {row.newLiquidQty != null && row.unitLiquid && (
+                                        <div className="flex items-center gap-2.5 px-3 py-2 border rounded-lg bg-background ml-4">
+                                            <div className="text-xs font-semibold flex-[1.5] text-muted-foreground">{row.name} (liquid)</div>
+                                            <div className="text-xs flex-1 text-right text-muted-foreground">
+                                                {row.plannedLiquid} {"->"} <b className="text-foreground">{row.newLiquidQty}</b> {row.unitLiquid}
+                                            </div>
+                                            <div>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={`${row.liquidDir === "down" ? "bg-destructive/10 text-destructive" :
+                                                        row.liquidDir === "up" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
+                                                        }`}
+                                                >
+                                                    {row.liquidDir}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 mt-3">

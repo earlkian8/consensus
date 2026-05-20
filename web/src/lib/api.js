@@ -7,7 +7,10 @@ const req = async (method, path, body) => {
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Request failed");
+    if (!res.ok) {
+        console.error(`[API ${method} ${path}]`, data);
+        throw new Error(data.details ? JSON.stringify(data.details) : (data.error ?? "Request failed"));
+    }
     return data;
 };
 
@@ -25,4 +28,6 @@ export const api = {
     updatePlanStatus: (id, status) => req("PATCH", `/product-planning/${id}/status`, { status }),
     submitExcess: (planId, details) => req("PATCH", `/product-planning/details/${planId}/excess`, { details }),
     deletePlan: (id) => req("DELETE", `/product-planning/${id}`),
+
+    getLatestAnalytics: () => req("GET", "/analytics/latest"),
 };

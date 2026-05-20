@@ -70,7 +70,7 @@ function Dashboard() {
         items: (p.production_details || p.details || []).map((d) => ({
             productId: d.p_fk,
             qty: Number(d.amount),
-            liquidQty: null,
+            liquidQty: d.liquid_amount != null ? Number(d.liquid_amount) : null,
             aiQty: null,
             aiDir: "same",
             aiHistory: [],
@@ -383,7 +383,14 @@ function Dashboard() {
             name,
             date: today,
             end_time: endTime,
-            details: items.map((item) => ({ p_fk: item.productId, amount: item.qty })),
+            details: items.map((item) => {
+                const product = productsById.get(item.productId);
+                return {
+                    p_fk: item.productId,
+                    amount: item.qty,
+                    liquid_amount: product?.unit_liquid ? (item.liquidQty ?? product.batch_liquid_volume ?? null) : null,
+                };
+            }),
         })
             .then((p) => {
                 const realPlan = mapPlan(p, plans.length, color);
@@ -551,7 +558,6 @@ function Dashboard() {
     const runAI = () => {
         if (!session || session.status !== "ended") return;
 
-        // Build details payload from auditEntries mapped to detailIds
         const plan = plans.find((p) => p.id === session.planId);
         if (!plan) return;
 
@@ -571,38 +577,89 @@ function Dashboard() {
             return;
         }
 
-        const auditRows = session.items
-            .map((item) => {
-                const product = productsById.get(item.productId);
-                if (!product) return null;
-                const entry = auditEntries[product.id] || { excessQty: "", unit: product.unit, condition: CONDITIONS[0] };
-                return {
-                    productId: product.id, name: product.name, unit: product.unit, planned: item.qty, excess: Number(entry.excessQty) || 0,
-                    excUnit: entry.unit || product.unit, condition: entry.condition, cost: product.cost,
-                    ...(product.unit_liquid ? { excessLiquid: Number(entry.excessLiquidQty) || 0, unitLiquid: product.unit_liquid, liquidPlanned: product.batch_liquid_volume || 0 } : {}),
-                };
-            })
-            .filter(Boolean);
-
         gotoPage("ai");
         setAiStatus("loading");
         setAiResults(null);
         setApplyNoteVisible(false);
 
         api.submitExcess(session.planId, details)
-            .then(() => {
-                // Reset plan to idle so a new session can be started
-                return api.updatePlanStatus(session.planId, "idle");
-            })
+            .then(() => api.updatePlanStatus(session.planId, "idle"))
             .then(() => {
                 setPlans((prev) => prev.map((p) =>
                     p.id === session.planId ? { ...p, status: "idle" } : p
                 ));
-                if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-                aiTimerRef.current = setTimeout(() => {
-                    setAiResults(buildAIResults(auditRows));
-                    setAiStatus("results");
-                }, 1800);
+                return api.getLatestAnalytics();
+            })
+            .then(({ plan: analysisPlan, analysis }) => {
+                // Build aiResults from backend production_analysis data
+                const rows = analysis.map((a) => {
+                    const product = productsById.get(a.p_fk);
+                    const sessionItem = session.items.find((i) => i.productId === a.p_fk);
+                    const planned = sessionItem?.qty ?? 0;
+                    const plannedLiquid = sessionItem?.liquidQty ?? null;
+                    const suggested = Number(a.suggested_amount);
+                    const suggestedLiquid = a.suggested_liquid_amount != null ? Number(a.suggested_liquid_amount) : null;
+                    const dir = suggested > planned ? "up" : suggested < planned ? "down" : "same";
+                    const liquidDir = suggestedLiquid != null && plannedLiquid != null
+                        ? (suggestedLiquid > plannedLiquid ? "up" : suggestedLiquid < plannedLiquid ? "down" : "same")
+                        : null;
+                    return {
+                        productId: a.p_fk,
+                        name: product?.name ?? a.p_fk,
+                        planned,
+                        newQty: suggested,
+                        unit: product?.unit_solid || product?.unit || "units",
+                        dir,
+                        plannedLiquid,
+                        newLiquidQty: suggestedLiquid,
+                        unitLiquid: product?.unit_liquid ?? null,
+                        liquidDir,
+                        detailId: null,
+                    };
+                });
+
+                const totalPlanned = rows.reduce((s, r) => s + r.planned, 0);
+                const totalExcess = session.items.reduce((s, item) => {
+                    const entry = auditEntries[item.productId] || {};
+                    return s + (Number(entry.excessQty) || 0);
+                }, 0);
+                const wastePct = totalPlanned > 0 ? Math.round((totalExcess / totalPlanned) * 100) : 0;
+                const adjustedCount = rows.filter((r) => r.dir !== "same").length;
+
+                const recommendations = rows.map((r) => {
+                    if (r.dir === "down") return `${r.name}: reduce from ${r.planned} to ${r.newQty} ${r.unit}.`;
+                    if (r.dir === "up") return `${r.name}: increase from ${r.planned} to ${r.newQty} ${r.unit}.`;
+                    return `${r.name}: keep at ${r.planned} ${r.unit}.`;
+                });
+                recommendations.push(
+                    `Overall waste rate: ${wastePct}%. SDG 12 target is 10% or lower. ${
+                        wastePct <= 10 ? "On track." : "Keep reducing to reach the goal."
+                    }`
+                );
+
+                const chartData = session.items.map((item) => {
+                    const product = productsById.get(item.productId);
+                    const entry = auditEntries[item.productId] || {};
+                    return {
+                        name: product?.name ?? item.productId,
+                        planned: item.qty,
+                        excess: Number(entry.excessQty) || 0,
+                    };
+                });
+
+                setAiResults({
+                    wastePct,
+                    adjustedCount,
+                    totalSaved: 0,
+                    recommendations,
+                    suggestions: rows.map((r) => ({ productId: r.productId, newQty: r.newQty, dir: r.dir })),
+                    rows,
+                    chartData,
+                    sourcePlanId: session.planId,
+                    sourcePlanName: session.planName,
+                    sourcePlanEndTime: plan.endTime,
+                });
+                setAiStatus("results");
             })
             .catch((err) => {
                 setAiStatus("empty");
@@ -611,35 +668,54 @@ function Dashboard() {
             });
     };
 
-    const applyChanges = () => {
-        if (!session || !aiResults) return;
-        setPlans((prev) =>
-            prev.map((plan) => {
-                if (plan.id !== session.planId) return plan;
-                const items = plan.items.map((item) => {
-                    const suggestion = aiResults.suggestions.find((entry) => entry.productId === item.productId);
-                    if (!suggestion) return item;
-                    const updatedHistory = [...(item.aiHistory || []), suggestion.dir].slice(-10);
-                    const updatedItem = { ...item, aiQty: suggestion.newQty, aiDir: suggestion.dir, aiHistory: updatedHistory };
-                    if (suggestion.dir !== "same") updatedItem.qty = suggestion.newQty;
-                    // Apply liquid quantity change
-                    if (suggestion.newLiquidQty !== undefined && suggestion.liquidDir !== "same") {
-                        updatedItem.liquidQty = suggestion.newLiquidQty;
-                    }
-                    return updatedItem;
-                });
-                return { ...plan, items, sessions: [...plan.sessions, { date: new Date().toISOString(), wastePct: aiResults.wastePct }] };
-            })
-        );
+    const createNextPlan = (useAI) => {
+        if (!aiResults) return;
+        const today = new Date().toISOString().split("T")[0];
+        const color = PLAN_COLORS[plans.length % PLAN_COLORS.length];
+        const name = aiResults.sourcePlanName ? `${aiResults.sourcePlanName} (next)` : "Next Plan";
+        const endTime = aiResults.sourcePlanEndTime || "17:00";
+        const details = aiResults.rows
+            .filter((r) => r.productId && !r.name.endsWith("(soup)"))
+            .map((r) => {
+                const sessionItem = session?.items.find((i) => i.productId === r.productId);
+                const product = productsById.get(r.productId);
+                const liquidAmt = useAI && r.newLiquidQty != null ? r.newLiquidQty : (sessionItem?.liquidQty ?? product?.batch_liquid_volume ?? null);
+                return {
+                    p_fk: r.productId,
+                    amount: Math.max(1, useAI ? r.newQty : r.planned),
+                    liquid_amount: product?.unit_liquid ? liquidAmt : null,
+                };
+            });
+
+        const tempId = `temp-${Date.now()}`;
+        const optimisticItems = details.map((d) => ({
+            productId: d.p_fk, qty: d.amount, liquidQty: null,
+            aiQty: null, aiDir: "same", aiHistory: [], detailId: null, excess: null,
+        }));
+        const optimisticPlan = { id: tempId, name, color, endTime, date: today, status: "idle", items: optimisticItems, sessions: [], _saving: true };
+        setPlans((prev) => [...prev, optimisticPlan]);
         setApplyNoteVisible(true);
-        fireToast("success", { title: "Plan updated", description: "AI changes saved to the plan." });
+
+        api.createPlan({ name, date: today, end_time: endTime, details })
+            .then((p) => {
+                const realPlan = mapPlan(p, plans.length, color);
+                setPlans((prev) => prev.map((pl) => pl.id === tempId ? realPlan : pl));
+                setAiStatus("empty");
+                setAiResults(null);
+                setApplyNoteVisible(false);
+                setSession(null);
+                gotoPage("planning");
+                fireToast("success", { title: useAI ? "Plan created with AI suggestions" : "Plan created with original quantities" });
+            })
+            .catch((err) => {
+                setPlans((prev) => prev.filter((pl) => pl.id !== tempId));
+                setApplyNoteVisible(false);
+                fireToast("error", { title: "Failed to create plan", description: err.message });
+            });
     };
 
-    const dismissAI = () => {
-        setAiStatus("empty");
-        setAiResults(null);
-        setApplyNoteVisible(false);
-    };
+    const applyChanges = () => createNextPlan(true);
+    const dismissAI = () => createNextPlan(false);
 
     return (
         <div className="flex min-h-screen bg-background">
