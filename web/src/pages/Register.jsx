@@ -6,11 +6,7 @@ import { Input } from "@/components/shadcnUI/input";
 
 export default function Register() {
     return (
-<<<<<<< HEAD
-        <div className="max-w-6xl mx-auto px-6 py-6 pb-10">
-=======
         <div className="max-w-[860px] mx-auto px-4 py-6 pb-10">
->>>>>>> 1db09687e41d3d3c18edc343f19d1fbf2ec244a3
             <h1 className="text-xl font-bold text-foreground mb-1">Create your account</h1>
             <p className="text-xs text-muted-foreground mb-[18px]">Set up Consensus access for your team.</p>
 
@@ -33,10 +29,7 @@ export default function Register() {
                     />
                 </div>
 
-                <Button
-                    type="button"
-                    className="w-full mt-4 font-semibold"
-                >
+                <Button type="button" className="w-full mt-4 font-semibold">
                     Create account
                 </Button>
 
