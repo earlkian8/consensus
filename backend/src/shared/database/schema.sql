@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS production_details (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pp_fk UUID NOT NULL REFERENCES production_plans(id) ON DELETE CASCADE,
     p_fk UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    amount NUMERIC(10, 2) NOT NULL,
     excess NUMERIC(10, 2) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

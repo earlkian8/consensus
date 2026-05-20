@@ -7,6 +7,7 @@ export const createPlanningSchema = z.object({
     details: z.array(
       z.object({
         p_fk: z.string().uuid("Invalid product ID"),
+        amount: z.number({ required_error: "Amount is required" }).positive("Amount must be positive"),
         excess: z.number().optional(),
       })
     ).min(1, "At least one production detail is required"),
@@ -15,10 +16,15 @@ export const createPlanningSchema = z.object({
 
 export const updateDetailExcessSchema = z.object({
   params: z.object({
-    id: z.string().uuid("Invalid detail ID"),
+    id: z.string().uuid("Invalid plan ID"),
   }),
   body: z.object({
-    excess: z.number({ required_error: "Excess is required" }),
+    details: z.array(
+      z.object({
+        id: z.string().uuid("Invalid detail ID"),
+        excess: z.number({ required_error: "Excess is required" }).min(0),
+      })
+    ).min(1, "At least one detail is required"),
   }),
 });
 

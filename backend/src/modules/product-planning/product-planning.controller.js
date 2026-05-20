@@ -31,10 +31,9 @@ export const createProductPlanning = async (req, res) => {
 export const updateProductDetailExcess = async (req, res) => {
   try {
     const { id } = req.params;
-    const { excess } = req.body;
-    const detail = await productPlanningService.updateProductDetailExcess(id, excess);
-    if (!detail) return res.status(404).json({ error: "Production detail not found" });
-    res.json(detail);
+    const { details } = req.body;
+    const result = await productPlanningService.updateProductDetailExcess(id, details);
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
