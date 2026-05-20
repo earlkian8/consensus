@@ -23,7 +23,7 @@ export default function AiInsightsPage({
     onDismissAI,
 }) {
     return (
-        <div className={`max-w-215 mx-auto px-4 py-6 pb-10 ${active ? "block" : "hidden"}`}>
+        <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             {aiStatus === "empty" && (
                 <div className="text-center py-7 px-3.5 text-muted-foreground">
                     <div className="text-3xl mb-2">[ ]</div>

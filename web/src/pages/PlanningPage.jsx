@@ -1,3 +1,4 @@
+import React from "react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Input } from "@/components/shadcnUI/input";
@@ -31,7 +32,7 @@ export default function PlanningPage({
     onGoToProducts,
 }) {
     return (
-        <div className={`max-w-215 mx-auto px-4 py-6 pb-10 ${active ? "block" : "hidden"}`}>
+        <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             <div className="flex items-center justify-between mb-1">
                 <h1 className="text-xl font-bold text-foreground">Production plans</h1>
                 <Button size="sm" type="button" onClick={onOpenNewPlanModal}>
@@ -151,27 +152,45 @@ export default function PlanningPage({
                                                         ));
 
                                                         return (
-                                                            <tr key={item.productId} className={i !== plan.items.length - 1 ? "border-b border-secondary" : ""}>
-                                                                <td className="py-2 px-2 align-middle">
-                                                                    <b className="font-bold">{product.name}</b>{" "}
-                                                                    <span className="text-[10px] text-muted-foreground">{product.cat}</span>
-                                                                </td>
-                                                                <td className="py-2 px-2 align-middle text-right">{item.qty}</td>
-                                                                <td className="py-2 px-2 align-middle">{product.unit}</td>
-                                                                <td className="py-2 px-2 align-middle whitespace-nowrap">
-                                                                    <Input
-                                                                        className="w-17.5 h-7 text-xs text-right inline-flex bg-background"
-                                                                        type="number"
-                                                                        min="1"
-                                                                        value={item.qty}
-                                                                        onChange={(e) => onUpdatePlanQty(plan.id, product.id, Number(e.target.value))}
-                                                                    />
-                                                                    {aiTag}
-                                                                </td>
-                                                                <td className="py-2 px-2 align-middle text-center">
-                                                                    {historyDots.length > 0 ? historyDots : <span className="text-muted-foreground text-[10px]">-</span>}
-                                                                </td>
-                                                            </tr>
+                                                            <React.Fragment key={item.productId}>
+                                                                <tr className={!product.unit_liquid && i !== plan.items.length - 1 ? "border-b border-secondary" : ""}>
+                                                                    <td className="py-2 px-2 align-middle" rowSpan={product.unit_liquid ? 2 : 1}>
+                                                                        <b className="font-bold">{product.name}</b>{" "}
+                                                                        <span className="text-[10px] text-muted-foreground">{product.cat}</span>
+                                                                    </td>
+                                                                    <td className="py-2 px-2 align-middle text-right">{item.qty}</td>
+                                                                    <td className="py-2 px-2 align-middle">{product.unit_solid || product.unit}</td>
+                                                                    <td className="py-2 px-2 align-middle whitespace-nowrap">
+                                                                        <Input
+                                                                            className="w-17.5 h-7 text-xs text-right inline-flex bg-background"
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={item.qty}
+                                                                            onChange={(e) => onUpdatePlanQty(plan.id, product.id, Number(e.target.value))}
+                                                                        />
+                                                                        {aiTag}
+                                                                    </td>
+                                                                    <td className="py-2 px-2 align-middle text-center" rowSpan={product.unit_liquid ? 2 : 1}>
+                                                                        {historyDots.length > 0 ? historyDots : <span className="text-muted-foreground text-[10px]">-</span>}
+                                                                    </td>
+                                                                </tr>
+                                                                {product.unit_liquid && (
+                                                                    <tr className={i !== plan.items.length - 1 ? "border-b border-secondary" : ""}>
+                                                                        <td className="py-2 px-2 align-middle text-right">{item.liquidQty ?? product.batch_liquid_volume ?? 0}</td>
+                                                                        <td className="py-2 px-2 align-middle">{product.unit_liquid}</td>
+                                                                        <td className="py-2 px-2 align-middle whitespace-nowrap">
+                                                                            <Input
+                                                                                className="w-17.5 h-7 text-xs text-right inline-flex bg-background"
+                                                                                type="number"
+                                                                                min="0"
+                                                                                step="0.1"
+                                                                                value={item.liquidQty ?? product.batch_liquid_volume ?? 0}
+                                                                                onChange={(e) => onUpdatePlanQty(plan.id, product.id, Number(e.target.value), "liquidQty")}
+                                                                            />
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </React.Fragment>
                                                         );
                                                     })}
                                                 </tbody>

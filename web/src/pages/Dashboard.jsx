@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Topbar from "@/components/layout/Topbar";
+import Sidebar from "@/components/layout/Sidebar";
 import {
     AiInsightsPage,
     AuditPage,
@@ -13,11 +13,11 @@ import { SileoToastProvider, fireToast } from "@/components/sileo/SileoToast";
 import {
     CONDITIONS,
     DEFAULT_PRODUCTS,
+    DISH_TYPES,
     DISPOSITIONS,
     PLAN_COLORS,
     PLAN_LETTERS,
     PRODUCT_CATEGORIES,
-    PRODUCT_UNITS,
 } from "@/lib/consensus-data";
 import { buildAIResults } from "@/lib/consensus-ai";
 
@@ -35,12 +35,15 @@ function Dashboard() {
     const [selectedProductIds, setSelectedProductIds] = useState([]);
     const [productDraft, setProductDraft] = useState({
         name: "",
-        cat: PRODUCT_CATEGORIES[0],
-        qty: "",
-        unit: PRODUCT_UNITS[0],
-        cost: "",
-        notes: "",
         image: "",
+        category: PRODUCT_CATEGORIES[0],
+        dish_type: "",
+        batch_solid_count: "",
+        batch_liquid_volume: "",
+        unit_solid: null,
+        unit_liquid: null,
+        price_per_portion: "",
+        notes: "",
     });
     const [auditEntries, setAuditEntries] = useState({});
     const [auditDisposition, setAuditDisposition] = useState(DISPOSITIONS[0]);
@@ -87,8 +90,14 @@ function Dashboard() {
         setProductDraft((prev) => ({ ...prev, [key]: value }));
     };
 
+    const EMPTY_DRAFT = {
+        name: "", image: "", category: PRODUCT_CATEGORIES[0], dish_type: "",
+        batch_solid_count: "", batch_liquid_volume: "", unit_solid: null, unit_liquid: null,
+        price_per_portion: "", notes: "",
+    };
+
     const openCreateProductModal = () => {
-        setProductDraft((prev) => ({ ...prev, name: "", qty: "", image: "" }));
+        setProductDraft(EMPTY_DRAFT);
         setCreateProductOpen(true);
     };
 
@@ -100,21 +109,32 @@ function Dashboard() {
             fireToast("error", { title: "Product name missing", description: "Add a name before saving a product." });
             return false;
         }
-
+        if (!productDraft.dish_type) {
+            fireToast("error", { title: "Dish type required", description: "Select a dish type before saving." });
+            return false;
+        }
+        const dt = productDraft.dish_type;
+        const defaultSolidUnit = dt === "SOUP_STEW" ? null : dt === "DRY_SCOOPED" ? "scoops" : "pieces";
+        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || defaultSolidUnit);
+        const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
         const newProduct = {
             id: nextProdId.current,
             name,
-            cat: productDraft.cat || PRODUCT_CATEGORIES[0],
-            qty: Number(productDraft.qty) || 10,
-            unit: productDraft.unit || PRODUCT_UNITS[0],
-            cost: Number(productDraft.cost) || 0,
+            cat: productDraft.category || PRODUCT_CATEGORIES[0],
+            dish_type: dt,
+            batch_solid_count: unit_solid ? (Number(productDraft.batch_solid_count) || null) : null,
+            batch_liquid_volume: unit_liquid ? (Number(productDraft.batch_liquid_volume) || null) : null,
+            unit_solid,
+            unit_liquid,
+            unit: unit_solid || unit_liquid || "pieces",
+            qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || 10,
+            cost: Number(productDraft.price_per_portion) || 0,
             notes: productDraft.notes.trim(),
             image: productDraft.image || "",
         };
-
         nextProdId.current += 1;
         setProducts((prev) => [...prev, newProduct]);
-        setProductDraft((prev) => ({ ...prev, name: "", qty: "", cost: "", notes: "", image: "" }));
+        setProductDraft(EMPTY_DRAFT);
         fireToast("success", { title: "Product added", description: `${name} is ready for planning.` });
         return true;
     };
@@ -125,6 +145,57 @@ function Dashboard() {
             prev.map((plan) => ({ ...plan, items: plan.items.filter((item) => item.productId !== id) }))
         );
         fireToast("success", { title: "Product removed", description: "Removed from catalog and any linked plans." });
+    };
+
+    const editProduct = (id) => {
+        const product = productsById.get(id);
+        if (!product) return;
+        setProductDraft({
+            name: product.name,
+            image: product.image || "",
+            category: product.cat || PRODUCT_CATEGORIES[0],
+            dish_type: product.dish_type || "",
+            batch_solid_count: product.batch_solid_count ? String(product.batch_solid_count) : "",
+            batch_liquid_volume: product.batch_liquid_volume ? String(product.batch_liquid_volume) : "",
+            unit_solid: product.unit_solid || null,
+            unit_liquid: product.unit_liquid || null,
+            price_per_portion: product.cost ? String(product.cost) : "",
+            notes: product.notes || "",
+            _editId: id,
+        });
+        setCreateProductOpen(true);
+    };
+
+    const saveEditedProduct = () => {
+        const name = productDraft.name.trim();
+        if (!name || !productDraft.dish_type) return false;
+        const dt = productDraft.dish_type;
+        const defaultSolidUnit = dt === "SOUP_STEW" ? null : dt === "DRY_SCOOPED" ? "scoops" : "pieces";
+        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || defaultSolidUnit);
+        const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
+        const editId = productDraft._editId;
+
+        setProducts((prev) => prev.map((p) => {
+            if (p.id !== editId) return p;
+            return {
+                ...p,
+                name,
+                cat: productDraft.category || PRODUCT_CATEGORIES[0],
+                dish_type: dt,
+                batch_solid_count: unit_solid ? (Number(productDraft.batch_solid_count) || null) : null,
+                batch_liquid_volume: unit_liquid ? (Number(productDraft.batch_liquid_volume) || null) : null,
+                unit_solid,
+                unit_liquid,
+                unit: unit_solid || unit_liquid || "pieces",
+                qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || p.qty,
+                cost: Number(productDraft.price_per_portion) || 0,
+                notes: productDraft.notes.trim(),
+                image: productDraft.image || "",
+            };
+        }));
+        setProductDraft(EMPTY_DRAFT);
+        fireToast("success", { title: "Product updated", description: `${name} has been updated.` });
+        return true;
     };
 
     const openNewPlanModal = () => {
@@ -159,7 +230,14 @@ function Dashboard() {
         const color = PLAN_COLORS[plans.length % PLAN_COLORS.length];
         const items = selectedProductIds.map((id) => {
             const product = productsById.get(id);
-            return { productId: id, qty: product ? product.qty : 0, aiQty: null, aiDir: "same", aiHistory: [] };
+            return {
+                productId: id,
+                qty: product ? product.qty : 0,
+                ...(product?.unit_liquid ? { liquidQty: product.batch_liquid_volume || 0 } : {}),
+                aiQty: null,
+                aiDir: "same",
+                aiHistory: [],
+            };
         });
 
         const newPlan = { id: nextPlanId.current, name, color, endTime, items, sessions: [] };
@@ -172,13 +250,13 @@ function Dashboard() {
 
     const togglePlanBody = (planId) => setActivePlanId((prev) => (prev === planId ? null : planId));
 
-    const updatePlanQty = (planId, productId, value) => {
+    const updatePlanQty = (planId, productId, value, field = "qty") => {
         setPlans((prev) =>
             prev.map((plan) => {
                 if (plan.id !== planId) return plan;
                 return {
                     ...plan,
-                    items: plan.items.map((item) => (item.productId === productId ? { ...item, qty: value } : item)),
+                    items: plan.items.map((item) => (item.productId === productId ? { ...item, [field]: value } : item)),
                 };
             })
         );
@@ -196,7 +274,12 @@ function Dashboard() {
         items.forEach((item) => {
             const product = productsById.get(item.productId);
             if (!product) return;
-            entries[product.id] = { excessQty: "", unit: product.unit, condition: CONDITIONS[0] };
+            entries[product.id] = {
+                excessQty: "",
+                unit: product.unit,
+                condition: CONDITIONS[0],
+                ...(product.unit_liquid ? { excessLiquidQty: "", unitLiquid: product.unit_liquid } : {}),
+            };
         });
         return entries;
     };
@@ -250,23 +333,34 @@ function Dashboard() {
 
     const updateAuditEntry = (productId, patch, fallbackUnit) => {
         setAuditEntries((prev) => {
-            const current = prev[productId] || { excessQty: "", unit: fallbackUnit, condition: CONDITIONS[0] };
+            const product = productsById.get(productId);
+            const current = prev[productId] || {
+                excessQty: "",
+                unit: fallbackUnit,
+                condition: CONDITIONS[0],
+                ...(product?.unit_liquid ? { excessLiquidQty: "", unitLiquid: product.unit_liquid } : {}),
+            };
             return { ...prev, [productId]: { ...current, ...patch } };
         });
     };
 
     const auditStats = useMemo(() => {
-        if (!session || session.status !== "ended") return { planned: 0, excess: 0, pct: 0 };
-        let planned = 0, excess = 0;
+        if (!session || session.status !== "ended") return { planned: 0, plannedLiquid: 0, excess: 0, excessLiquid: 0, pct: 0, pctLiquid: 0 };
+        let planned = 0, plannedLiquid = 0, excess = 0, excessLiquid = 0;
         session.items.forEach((item) => {
             const product = productsById.get(item.productId);
             if (!product) return;
             planned += item.qty;
+            if (product.unit_liquid) {
+                plannedLiquid += item.liquidQty ?? product.batch_liquid_volume ?? 0;
+            }
             const entry = auditEntries[product.id];
             excess += Number(entry?.excessQty) || 0;
+            excessLiquid += Number(entry?.excessLiquidQty) || 0;
         });
         const pct = planned > 0 ? Math.round((excess / planned) * 100) : 0;
-        return { planned, excess, pct };
+        const pctLiquid = plannedLiquid > 0 ? Math.round((excessLiquid / plannedLiquid) * 100) : 0;
+        return { planned, plannedLiquid, excess, excessLiquid, pct, pctLiquid };
     }, [session, productsById, auditEntries]);
 
     const runAI = () => {
@@ -279,6 +373,7 @@ function Dashboard() {
                 return {
                     productId: product.id, name: product.name, unit: product.unit, planned: item.qty, excess: Number(entry.excessQty) || 0,
                     excUnit: entry.unit || product.unit, condition: entry.condition, cost: product.cost,
+                    ...(product.unit_liquid ? { excessLiquid: Number(entry.excessLiquidQty) || 0, unitLiquid: product.unit_liquid, liquidPlanned: product.batch_liquid_volume || 0 } : {}),
                 };
             })
             .filter(Boolean);
@@ -306,6 +401,10 @@ function Dashboard() {
                     const updatedHistory = [...(item.aiHistory || []), suggestion.dir].slice(-10);
                     const updatedItem = { ...item, aiQty: suggestion.newQty, aiDir: suggestion.dir, aiHistory: updatedHistory };
                     if (suggestion.dir !== "same") updatedItem.qty = suggestion.newQty;
+                    // Apply liquid quantity change
+                    if (suggestion.newLiquidQty !== undefined && suggestion.liquidDir !== "same") {
+                        updatedItem.liquidQty = suggestion.newLiquidQty;
+                    }
                     return updatedItem;
                 });
                 return { ...plan, items, sessions: [...plan.sessions, { date: new Date().toISOString(), wastePct: aiResults.wastePct }] };
@@ -322,9 +421,10 @@ function Dashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
-            <SileoToastProvider position="bottom-right" />
-            <Topbar activePage={page} onNavigate={gotoPage} />
+        <div className="flex min-h-screen bg-background">
+            <SileoToastProvider />
+            <Sidebar activePage={page} onNavigate={gotoPage} />
+            <div className="flex-1 min-w-0">
 
             <ProductsPage
                 active={page === "products"}
@@ -332,6 +432,8 @@ function Dashboard() {
                 productDraft={productDraft}
                 onDraftChange={updateProductDraft}
                 onAddProduct={addProduct}
+                onEditProduct={editProduct}
+                onSaveEditedProduct={saveEditedProduct}
                 onDeleteProduct={deleteProduct}
                 createProductOpen={createProductOpen}
                 onOpenCreateProduct={openCreateProductModal}
@@ -371,7 +473,6 @@ function Dashboard() {
                 auditEntries={auditEntries}
                 auditStats={auditStats}
                 dispositions={DISPOSITIONS}
-                units={PRODUCT_UNITS}
                 conditions={CONDITIONS}
                 auditDisposition={auditDisposition}
                 auditNotes={auditNotes}
@@ -413,6 +514,7 @@ function Dashboard() {
                 onClose={() => setNewPlanOpen(false)}
                 onCreate={createPlan}
             />
+            </div>
         </div>
     );
 }

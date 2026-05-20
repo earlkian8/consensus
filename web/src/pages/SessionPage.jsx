@@ -12,7 +12,7 @@ export default function SessionPage({
     onGoToAudit,
 }) {
     return (
-        <div className={`max-w-215 mx-auto px-4 py-6 pb-10 ${active ? "block" : "hidden"}`}>
+        <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             {!session && (
                 <div className="text-center py-7 px-3.5 text-muted-foreground">
                     <div className="text-3xl mb-2">[!]</div>
@@ -75,9 +75,16 @@ export default function SessionPage({
                                     <div className="text-[13px] font-semibold flex-[1.8]">
                                         {product ? product.name : "?"}
                                     </div>
-                                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                                        {item.qty} {product ? product.unit : "units"}
-                                    </Badge>
+                                    <div className="flex items-center gap-1.5">
+                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                            {item.qty} {product ? (product.unit_solid || product.unit) : "units"}
+                                        </Badge>
+                                        {product?.unit_liquid && (
+                                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                {item.liquidQty ?? product.batch_liquid_volume ?? 0} {product.unit_liquid}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}
