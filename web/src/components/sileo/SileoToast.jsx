@@ -1,5 +1,5 @@
 import { sileo, Toaster } from "sileo"
-import "sileo/dist/styles.css"
+import "sileo/styles.css"
 
 export { sileo, Toaster }
 
