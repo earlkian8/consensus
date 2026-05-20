@@ -258,18 +258,6 @@ export default function PlanningPage({
                                             </div>
                                         )}
                                         <div className="mt-3.5 flex flex-col sm:flex-row gap-2">
-<<<<<<< Updated upstream
-                                            {!isActive && plan.status === "idle" ? (
-                                                <Button type="button" onClick={() => onProceedWithPlan(plan.id)}>
-                                                    Proceed with {plan.name}
-                                                </Button>
-                                            ) : isActive ? (
-                                                <Button disabled type="button">Session in progress</Button>
-                                            ) : plan.status === "ended" ? (
-                                                <Button disabled type="button">Session ended</Button>
-                                            ) : null}
-                                            <Button variant="destructive" size="sm" type="button" onClick={() => onDeletePlan(plan.id)}>
-=======
                                             {!isActive ? (
                                                 <Button type="button" onClick={() => setProceedConfirmId(plan.id)}>
                                                     Proceed with {plan.name}
@@ -279,7 +267,6 @@ export default function PlanningPage({
                                             )}
                                             <Button variant="destructive" size="sm" type="button" onClick={() => setDeleteConfirmId(plan.id)} className="gap-1.5">
                                                 <Trash2 size={13} />
->>>>>>> Stashed changes
                                                 Delete plan
                                             </Button>
                                         </div>
