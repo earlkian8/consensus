@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/shadcnUI/button";
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import Typed from "typed.js";
 import {
     Leaf, TrendingDown, BarChart3, ArrowRight,
@@ -19,6 +19,41 @@ const fadeUp = {
         transition: { delay: i * 0.1, duration: 0.5, ease: "easeOut" },
     }),
 };
+
+function AnimatedNumber({ value, suffix = "", prefix = "" }) {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true });
+    const [display, setDisplay] = useState("0");
+
+    useEffect(() => {
+        if (!isInView) return;
+        const numericPart = parseFloat(value.replace(/[^0-9.]/g, ""));
+        const duration = 1500;
+        const startTime = Date.now();
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = numericPart * eased;
+
+            if (Number.isInteger(numericPart)) {
+                setDisplay(Math.round(current).toString());
+            } else {
+                setDisplay(current.toFixed(1));
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                setDisplay(value.replace(/[^0-9.]/g, ""));
+            }
+        };
+        requestAnimationFrame(animate);
+    }, [isInView, value]);
+
+    return <span ref={ref}>{prefix}{display}{suffix}</span>;
+}
 
 export default function LandingPage() {
     const typedRef = useRef(null);
@@ -61,7 +96,8 @@ export default function LandingPage() {
                         </div>
                         <h1 className="text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-4">
                             Smarter kitchens,
-                            <span className="text-primary"> <span ref={typedRef} /></span>
+                            <br />
+                            <span className="text-primary"><span ref={typedRef} /></span>
                         </h1>
                         <p className="text-muted-foreground text-base leading-relaxed mb-8 max-w-lg">
                             Consensus is an AI-powered food excess management system that helps
@@ -88,21 +124,7 @@ export default function LandingPage() {
                                 alt="Commercial kitchen buffet"
                                 className="w-full h-72 lg:h-80 object-cover"
                             />
-                            <div className="absolute inset-0 bg-primary/25 mix-blend-multiply" />
-                            <div className="absolute bottom-4 left-4 right-4 flex gap-2">
-                                <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border">
-                                    <div className="text-xs font-bold text-primary">-34%</div>
-                                    <div className="text-[10px] text-muted-foreground">Waste reduced</div>
-                                </div>
-                                <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border">
-                                    <div className="text-xs font-bold text-foreground">127</div>
-                                    <div className="text-[10px] text-muted-foreground">Meals saved</div>
-                                </div>
-                                <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border">
-                                    <div className="text-xs font-bold text-foreground">P12.4k</div>
-                                    <div className="text-[10px] text-muted-foreground">Cost savings</div>
-                                </div>
-                            </div>
+                            <div className="absolute inset-0 bg-primary/35 mix-blend-multiply" />
                         </div>
                     </motion.div>
                 </div>
@@ -130,9 +152,9 @@ export default function LandingPage() {
 
                     <div className="grid md:grid-cols-3 gap-6">
                         {[
-                            { icon: TrendingDown, value: "1.3 Billion", label: "Tons of food wasted globally each year", color: "text-destructive" },
-                            { icon: DollarSign, value: "P1.5T+", label: "Annual economic losses from food waste worldwide", color: "text-destructive" },
-                            { icon: AlertTriangle, value: "30-40%", label: "Of food in commercial kitchens becomes excess", color: "text-destructive" },
+                            { icon: TrendingDown, value: "1.3", suffix: " Billion", label: "Tons of food wasted globally each year", color: "text-destructive" },
+                            { icon: DollarSign, value: "1.5", prefix: "P", suffix: "T+", label: "Annual economic losses from food waste worldwide", color: "text-destructive" },
+                            { icon: AlertTriangle, value: "30", suffix: "-40%", label: "Of food in commercial kitchens becomes excess", color: "text-destructive" },
                         ].map((stat, i) => (
                             <motion.div
                                 key={stat.label}
@@ -144,7 +166,9 @@ export default function LandingPage() {
                                 variants={fadeUp}
                             >
                                 <stat.icon size={28} className={`mx-auto mb-3 ${stat.color}`} />
-                                <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
+                                <div className="text-2xl font-bold text-foreground mb-1">
+                                    <AnimatedNumber value={stat.value} suffix={stat.suffix} prefix={stat.prefix || ""} />
+                                </div>
                                 <div className="text-sm text-muted-foreground">{stat.label}</div>
                             </motion.div>
                         ))}
