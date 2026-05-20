@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/shadcnUI/dialog";
+import { Clock } from "lucide-react";
 
 export default function NewPlanModal({
     open,
@@ -36,15 +37,15 @@ export default function NewPlanModal({
 
     return (
         <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-            <DialogContent className="max-w-125 flex flex-col max-h-[90vh]">
-                <DialogHeader>
-                    <DialogTitle className="text-[15px]">Create new plan</DialogTitle>
-                    <DialogDescription className="text-[11px]">
+            <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+                <DialogHeader className="px-7 pt-6 pb-4 border-b shrink-0">
+                    <DialogTitle className="text-lg font-semibold">Create new plan</DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground">
                         Name your plan, set the end time, then pick which products to include.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="overflow-y-auto flex-1 min-h-0 pr-2">
+                <div className="flex-1 overflow-y-auto px-7 py-6 min-h-0">
                     <div className="flex flex-wrap gap-2.5 mb-4">
                         <div className="flex flex-col gap-1 flex-2 min-w-22.5">
                             <label className="text-[11px] font-semibold text-muted-foreground">Plan name</label>
@@ -57,12 +58,18 @@ export default function NewPlanModal({
                         </div>
                         <div className="flex flex-col gap-1 flex-1 min-w-22.5">
                             <label className="text-[11px] font-semibold text-muted-foreground">Default end time</label>
-                            <Input
-                                className="h-8.5 text-[13px] bg-background"
-                                type="time"
-                                value={endTime}
-                                onChange={(event) => onChangeEndTime(event.target.value)}
-                            />
+                            <div className="relative">
+                                <div className="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center pl-3 peer-disabled:opacity-50">
+                                    <Clock className="size-4" />
+                                </div>
+                                <Input
+                                    type="time"
+                                    id="end-time"
+                                    className="peer h-8.5 text-[13px] bg-background appearance-none pl-9 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                                    value={endTime}
+                                    onChange={(event) => onChangeEndTime(event.target.value)}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -129,7 +136,7 @@ export default function NewPlanModal({
                     </div>
                 </div>
 
-                <DialogFooter className="mt-4 gap-2 sm:justify-end">
+                <DialogFooter className="mx-0 mb-0 px-7 py-4 border-t shrink-0 flex items-center justify-end gap-3">
                     <Button variant="outline" type="button" onClick={onClose}>
                         Cancel
                     </Button>

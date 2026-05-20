@@ -6,7 +6,7 @@ import { Input } from "@/components/shadcnUI/input";
 
 export default function Register() {
     return (
-        <div className="max-w-215 mx-auto px-4 py-6 pb-10">
+        <div className="max-w-6xl mx-auto px-6 py-6 pb-10">
             <h1 className="text-xl font-bold text-foreground mb-1">Create your account</h1>
             <p className="text-xs text-muted-foreground mb-4.5">Set up Consensus access for your team.</p>
 
