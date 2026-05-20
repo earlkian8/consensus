@@ -15,48 +15,6 @@ app.get("/", (req, res) => {
 /*
 /api
 */
-// sample post
-app.post("/send", async (req, res) => {
-  try {
-    const { email, message } = req.body;
-
-    // validation
-    if (!email || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and message are required",
-      });
-    }
-
-    const { data, error } = await supabase.from("messages").insert([
-        {
-          email,
-          message,
-        },
-      ]).select().single();
-
-    if (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      data,
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
 
 // server
 app.listen(PORT, () => {
