@@ -10,6 +10,7 @@ export const createPlanningSchema = z.object({
       z.object({
         p_fk: z.string().uuid("Invalid product ID"),
         amount: z.number({ required_error: "Amount is required" }).positive("Amount must be positive"),
+        liquid_amount: z.number().min(0).nullable().optional(),
         excess: z.number().optional(),
       })
     ).min(1, "At least one production detail is required"),

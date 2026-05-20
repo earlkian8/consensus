@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS production_details (
     pp_fk UUID NOT NULL REFERENCES production_plans(id) ON DELETE CASCADE,
     p_fk UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     amount NUMERIC(10, 2) NOT NULL,
+    liquid_amount NUMERIC(10, 2) DEFAULT NULL,
     excess NUMERIC(10, 2) DEFAULT NULL,
     condition VARCHAR(50) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS production_analysis (
     pp_fk UUID NOT NULL REFERENCES production_plans(id) ON DELETE CASCADE,
     p_fk UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     suggested_amount NUMERIC(10, 2) NOT NULL,
+    suggested_liquid_amount NUMERIC(10, 2) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

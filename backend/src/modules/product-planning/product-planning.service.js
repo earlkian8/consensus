@@ -35,7 +35,7 @@ export const createProductPlanning = async (planning) => {
 
   const { data: planDetails, error: detailsError } = await supabase
     .from("production_details")
-    .insert(details.map((d) => ({ pp_fk: plan.id, p_fk: d.p_fk, amount: d.amount, excess: d.excess ?? null })))
+    .insert(details.map((d) => ({ pp_fk: plan.id, p_fk: d.p_fk, amount: d.amount, liquid_amount: d.liquid_amount ?? null, excess: d.excess ?? null })))
     .select();
 
   if (detailsError) throw detailsError;
@@ -96,20 +96,18 @@ export const updateProductDetailExcess = async (planId, details) => {
 };
 
 const runAnalysis = async (planId) => {
-  // Fetch current plan details with product info
   const { data: currentDetails, error: currentError } = await supabase
     .from("production_details")
-    .select("p_fk, amount, excess")
+    .select("p_fk, amount, liquid_amount, excess")
     .eq("pp_fk", planId);
 
   if (currentError) throw currentError;
 
   const suggestions = await Promise.all(
-    currentDetails.map(async ({ p_fk, amount, excess }) => {
-      // Fetch last 7 days of history for this product (excluding current plan)
+    currentDetails.map(async ({ p_fk, amount, liquid_amount, excess }) => {
       const { data: history, error: historyError } = await supabase
         .from("production_details")
-        .select("amount, excess, production_plans(date)")
+        .select("amount, liquid_amount, excess")
         .eq("p_fk", p_fk)
         .not("excess", "is", null)
         .neq("pp_fk", planId)
@@ -118,52 +116,54 @@ const runAnalysis = async (planId) => {
 
       if (historyError) throw historyError;
 
-      const sold = parseFloat(amount) - parseFloat(excess);
+      const calcSuggested = (amt, exc, hist, field) => {
+        const sold = parseFloat(amt) - parseFloat(exc);
+        if (!hist || hist.length === 0) return exc == 0 ? sold * 1.05 : sold;
 
-      let suggested;
-
-      if (!history || history.length === 0) {
-        // No history: use today's sold as baseline, nudge up slightly if no excess
-        suggested = excess == 0 ? sold * 1.05 : sold;
-      } else {
-        // Weighted average: more recent days get higher weight
-        const entries = [{ amount, excess }, ...history];
-        let weightedSum = 0;
-        let weightTotal = 0;
-
-        entries.forEach(({ amount: a, excess: e }, i) => {
-          const weight = entries.length - i; // most recent = highest weight
-          const daySold = parseFloat(a) - parseFloat(e);
-          weightedSum += daySold * weight;
+        const entries = [{ a: amt, e: exc }, ...hist.map((h) => ({ a: h[field], e: h.excess }))];
+        let weightedSum = 0, weightTotal = 0;
+        entries.forEach(({ a, e }, i) => {
+          if (a == null) return;
+          const weight = entries.length - i;
+          weightedSum += (parseFloat(a) - parseFloat(e || 0)) * weight;
           weightTotal += weight;
         });
+        const weightedAvg = weightTotal > 0 ? weightedSum / weightTotal : sold;
+        const avgExcess = entries.reduce((s, { e }) => s + parseFloat(e || 0), 0) / entries.length;
+        const avgAmt = entries.reduce((s, { a }) => s + parseFloat(a || 0), 0) / entries.length;
+        const excessRate = avgAmt > 0 ? avgExcess / avgAmt : 0;
 
-        const weightedAvg = weightedSum / weightTotal;
+        if (excessRate > 0.2) return weightedAvg * (1 - excessRate * 0.5);
+        if (parseFloat(exc) === 0) return weightedAvg * 1.05;
+        return weightedAvg;
+      };
 
-        // Excess trend: compare avg excess of recent days
-        const avgExcess = entries.reduce((sum, { excess: e }) => sum + parseFloat(e), 0) / entries.length;
-        const excessRate = avgExcess / (entries.reduce((sum, { amount: a }) => sum + parseFloat(a), 0) / entries.length);
+      const suggested = calcSuggested(amount, excess, history, "amount");
+      const suggested_liquid = liquid_amount != null
+        ? calcSuggested(liquid_amount, excess, history, "liquid_amount")
+        : null;
 
-        if (excessRate > 0.2) {
-          // High excess trend (>20% waste) — reduce suggestion
-          suggested = weightedAvg * (1 - excessRate * 0.5);
-        } else if (parseFloat(excess) === 0) {
-          // Zero excess today — might be undersupplying, nudge up
-          suggested = weightedAvg * 1.05;
-        } else {
-          suggested = weightedAvg;
-        }
-      }
-
-      return { pp_fk: planId, p_fk, suggested_amount: Math.max(0, parseFloat(suggested.toFixed(2))) };
+      return {
+        pp_fk: planId,
+        p_fk,
+        suggested_amount: Math.max(0, parseFloat(suggested.toFixed(2))),
+        suggested_liquid_amount: suggested_liquid != null ? Math.max(0, parseFloat(suggested_liquid.toFixed(2))) : null,
+      };
     })
   );
 
   const { error: insertError } = await supabase
     .from("production_analysis")
-    .insert(suggestions);
+    .delete()
+    .eq("pp_fk", planId);
 
   if (insertError) throw insertError;
+
+  const { error: insertError2 } = await supabase
+    .from("production_analysis")
+    .insert(suggestions);
+
+  if (insertError2) throw insertError2;
 };
 
 export const updatePlanStatus = async (id, status) => {
