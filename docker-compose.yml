@@ -1,5 +1,7 @@
 services:
   backend:
+    user: "${UID}:${GID}"
+
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -8,7 +10,12 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=5000
-    # Optional: Connect to a database network here later
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    env_file:
+      # - backend/.env
+      - backend/.env.local
 
   web:
     build:
@@ -16,8 +23,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - PORT=5173
     volumes:
       - ./web:/app
       - /app/node_modules
+    command: npm run dev -- --host
     depends_on:
       - backend

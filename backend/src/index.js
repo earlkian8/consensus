@@ -1,20 +1,21 @@
 import "dotenv/config";
 import express from "express";
-import { supabase } from "./shared/database/supabase.js";
+import cors from "cors";
+import apiRouter from "./routes/index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // middleware
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Hello, World!");
+  res.send("API is running...");
 });
 
-/*
-/api
-*/
+// routes
+app.use("/api", apiRouter);
 
 // server
 app.listen(PORT, () => {

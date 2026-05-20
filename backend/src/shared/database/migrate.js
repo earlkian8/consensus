@@ -10,25 +10,20 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const isFresh = process.argv.includes("--fresh");
 
 const client = new Client({
-  connectionString: process.env.DB_URL,
+  connectionString: process.env.DATABASE_URL,
 });
 
-const schema = readFileSync(
-  join(__dirname, "schema.sql"),
-  "utf-8"
-);
+const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
 
 await client.connect();
 
 if (isFresh) {
   const { rows } = await client.query(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+    `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
   );
 
   for (const { tablename } of rows) {
-    await client.query(
-      `DROP TABLE IF EXISTS "${tablename}" CASCADE`
-    );
+    await client.query(`DROP TABLE IF EXISTS "${tablename}" CASCADE`);
   }
 
   console.log("Dropped all tables.");
