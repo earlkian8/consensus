@@ -22,7 +22,10 @@
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "start:app": "cd app && npx expo start",
-    "dev": "npm run docker:up"
+    "dev": "npm run docker:up",
+    "install:web": "docker compose run --rm web npm install",
+    "install:backend": "docker composer run --rm backend npm install",
+    "install": "npm run install:web && npm run install:backend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
