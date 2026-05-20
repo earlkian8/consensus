@@ -9,61 +9,49 @@ export default function AuditPage({
     productsById,
     auditEntries,
     auditStats,
-    dispositions,
     units,
     conditions,
-    auditDisposition,
-    auditNotes,
     onAuditEntryChange,
-    onDispositionChange,
-    onNotesChange,
     onRunAI,
     onGoToPlanning,
 }) {
     return (
-        <div id="page-audit" className={`page ${active ? "active" : ""}`}>
+        <div className={`max-w-215 mx-auto px-4 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             {!session || session.status !== "ended" ? (
-                <div className="empty">
-                    <div className="empty-icon">[ ]</div>
-                    <div className="empty-title">No ended session</div>
-                    <div className="empty-sub">Start and end a session first.</div>
-                    <Button
-                        className="btn btn-green"
-                        style={{ marginTop: "10px" }}
-                        type="button"
-                        onClick={onGoToPlanning}
-                    >
+                <div className="text-center py-7 px-3.5 text-muted-foreground">
+                    <div className="text-3xl mb-2">[ ]</div>
+                    <div className="text-[13px] font-semibold text-foreground mb-1">No ended session</div>
+                    <div className="text-[11px] leading-relaxed">Start and end a session first.</div>
+                    <Button className="mt-3" type="button" onClick={onGoToPlanning}>
                         Go to Planning -&gt;
                     </Button>
                 </div>
             ) : (
-                <div id="audit-content">
-                    <div className="page-title">Excess audit</div>
-                    <div className="page-sub">Logging excess for: {session.planName}</div>
-                    <div className="stat-grid">
-                        <div className="stat-card">
-                            <div className="stat-num">{auditStats.planned || "-"}</div>
-                            <div className="stat-lbl">Total planned</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-num" style={{ color: "var(--coral)" }}>
-                                {auditStats.excess || "-"}
-                            </div>
-                            <div className="stat-lbl">Total excess</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-num" style={{ color: "var(--amber)" }}>
-                                {`${auditStats.pct}%`}
-                            </div>
-                            <div className="stat-lbl">Waste rate</div>
-                        </div>
+                <div>
+                    <h1 className="text-xl font-bold text-foreground mb-1">Excess audit</h1>
+                    <p className="text-xs text-muted-foreground mb-4.5 leading-relaxed">
+                        Logging excess for: {session.planName}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                        <Card className="p-3 bg-secondary/50 border-none">
+                            <div className="text-xl font-bold text-foreground">{auditStats.planned || "-"}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">Total planned</div>
+                        </Card>
+                        <Card className="p-3 bg-secondary/50 border-none">
+                            <div className="text-xl font-bold text-destructive">{auditStats.excess || "-"}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">Total excess</div>
+                        </Card>
+                        <Card className="p-3 bg-secondary/50 border-none">
+                            <div className="text-xl font-bold text-amber-600">{`${auditStats.pct}%`}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">Waste rate</div>
+                        </Card>
                     </div>
-                    <div id="audit-items">
+
+                    <div className="flex flex-col gap-2.5">
                         {session.items.map((item) => {
                             const product = productsById.get(item.productId);
-                            if (!product) {
-                                return null;
-                            }
+                            if (!product) return null;
                             const entry = auditEntries[product.id] || {
                                 excessQty: "",
                                 unit: product.unit,
@@ -71,44 +59,39 @@ export default function AuditPage({
                             };
 
                             return (
-                                <div className="audit-item fade-in" key={product.id}>
-                                    <div className="audit-head">
-                                        <div style={{ flex: 1 }}>
-                                            <div className="audit-name">{product.name}</div>
-                                            <div className="audit-planned">
+                                <Card className="p-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300" key={product.id}>
+                                    <div className="flex items-center gap-2.5 p-2.5 bg-secondary/50 border-b">
+                                        <div className="flex-1">
+                                            <div className="text-[13px] font-bold text-foreground">{product.name}</div>
+                                            <div className="text-[10px] text-muted-foreground">
                                                 Planned: {item.qty} {product.unit}
                                             </div>
                                         </div>
-                                        <Badge className="badge b-green">Planned: {item.qty}</Badge>
+                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                            Planned: {item.qty}
+                                        </Badge>
                                     </div>
-                                    <div className="audit-body">
-                                        <div className="field">
-                                            <label>Excess amount</label>
+                                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-background">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-semibold text-muted-foreground">Excess amount</label>
                                             <Input
-                                                className="field-input"
+                                                className="h-8.5 text-[13px] bg-background"
                                                 type="number"
                                                 min="0"
                                                 value={entry.excessQty}
                                                 onChange={(event) =>
-                                                    onAuditEntryChange(
-                                                        product.id,
-                                                        { excessQty: event.target.value },
-                                                        product.unit
-                                                    )
+                                                    onAuditEntryChange(product.id, { excessQty: event.target.value }, product.unit)
                                                 }
                                                 placeholder="0"
                                             />
                                         </div>
-                                        <div className="field">
-                                            <label>Unit</label>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-semibold text-muted-foreground">Unit</label>
                                             <select
+                                                className="h-8.5 text-[13px] px-2.5 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                                 value={entry.unit}
                                                 onChange={(event) =>
-                                                    onAuditEntryChange(
-                                                        product.id,
-                                                        { unit: event.target.value },
-                                                        product.unit
-                                                    )
+                                                    onAuditEntryChange(product.id, { unit: event.target.value }, product.unit)
                                                 }
                                             >
                                                 {units.map((unit) => (
@@ -116,16 +99,13 @@ export default function AuditPage({
                                                 ))}
                                             </select>
                                         </div>
-                                        <div className="field">
-                                            <label>Condition</label>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-semibold text-muted-foreground">Condition</label>
                                             <select
+                                                className="h-8.5 text-[13px] px-2.5 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                                 value={entry.condition}
                                                 onChange={(event) =>
-                                                    onAuditEntryChange(
-                                                        product.id,
-                                                        { condition: event.target.value },
-                                                        product.unit
-                                                    )
+                                                    onAuditEntryChange(product.id, { condition: event.target.value }, product.unit)
                                                 }
                                             >
                                                 {conditions.map((condition) => (
@@ -134,41 +114,12 @@ export default function AuditPage({
                                             </select>
                                         </div>
                                     </div>
-                                </div>
+                                </Card>
                             );
                         })}
                     </div>
-                    {/* <div className="section-label">Excess disposition</div>
-                    <Card className="card">
-                        <div className="row">
-                            <div className="field">
-                                <label>What was done with excess?</label>
-                                <select
-                                    value={auditDisposition}
-                                    onChange={(event) => onDispositionChange(event.target.value)}
-                                >
-                                    {dispositions.map((option) => (
-                                        <option key={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="field">
-                                <label>Notes</label>
-                                <Input
-                                    className="field-input"
-                                    value={auditNotes}
-                                    onChange={(event) => onNotesChange(event.target.value)}
-                                    placeholder="e.g. rainy, low footfall"
-                                />
-                            </div>
-                        </div>
-                    </Card> */}
-                    <Button
-                        className="btn btn-green btn-full"
-                        style={{ marginTop: "6px" }}
-                        type="button"
-                        onClick={onRunAI}
-                    >
+
+                    <Button className="w-full mt-4 font-semibold" type="button" onClick={onRunAI}>
                         Analyze with AI and get recommendations -&gt;
                     </Button>
                 </div>

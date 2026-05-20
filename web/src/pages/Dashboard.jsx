@@ -64,35 +64,24 @@ function Dashboard() {
         () => ({
             planned: {
                 label: "Planned",
-                colors: {
-                    light: ["#1D9E75", "#0F6E56"],
-                },
+                colors: { light: ["#1D9E75", "#0F6E56"] },
             },
             excess: {
                 label: "Excess",
-                colors: {
-                    light: ["#D85A30", "#F0997B"],
-                },
+                colors: { light: ["#D85A30", "#F0997B"] },
             },
         }),
         []
     );
 
-    useEffect(
-        () => () => {
-            if (aiTimerRef.current) {
-                clearTimeout(aiTimerRef.current);
-            }
-            if (sessionEndRef.current) {
-                clearTimeout(sessionEndRef.current);
-            }
-        },
-        []
-    );
+    useEffect(() => {
+        return () => {
+            if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+            if (sessionEndRef.current) clearTimeout(sessionEndRef.current);
+        };
+    }, []);
 
-    const gotoPage = (nextPage) => {
-        setPage(nextPage);
-    };
+    const gotoPage = (nextPage) => setPage(nextPage);
 
     const updateProductDraft = (key, value) => {
         setProductDraft((prev) => ({ ...prev, [key]: value }));
@@ -103,17 +92,12 @@ function Dashboard() {
         setCreateProductOpen(true);
     };
 
-    const closeCreateProductModal = () => {
-        setCreateProductOpen(false);
-    };
+    const closeCreateProductModal = () => setCreateProductOpen(false);
 
     const addProduct = () => {
         const name = productDraft.name.trim();
         if (!name) {
-            fireToast("error", {
-                title: "Product name missing",
-                description: "Add a name before saving a product.",
-            });
+            fireToast("error", { title: "Product name missing", description: "Add a name before saving a product." });
             return false;
         }
 
@@ -130,45 +114,25 @@ function Dashboard() {
 
         nextProdId.current += 1;
         setProducts((prev) => [...prev, newProduct]);
-        setProductDraft((prev) => ({
-            ...prev,
-            name: "",
-            qty: "",
-            cost: "",
-            notes: "",
-            image: "",
-        }));
-        fireToast("success", {
-            title: "Product added",
-            description: `${name} is ready for planning.`,
-        });
+        setProductDraft((prev) => ({ ...prev, name: "", qty: "", cost: "", notes: "", image: "" }));
+        fireToast("success", { title: "Product added", description: `${name} is ready for planning.` });
         return true;
     };
 
     const deleteProduct = (id) => {
         setProducts((prev) => prev.filter((product) => product.id !== id));
         setPlans((prev) =>
-            prev.map((plan) => ({
-                ...plan,
-                items: plan.items.filter((item) => item.productId !== id),
-            }))
+            prev.map((plan) => ({ ...plan, items: plan.items.filter((item) => item.productId !== id) }))
         );
-        fireToast("success", {
-            title: "Product removed",
-            description: "Removed from catalog and any linked plans.",
-        });
+        fireToast("success", { title: "Product removed", description: "Removed from catalog and any linked plans." });
     };
 
     const openNewPlanModal = () => {
         if (products.length === 0) {
             gotoPage("products");
-            fireToast("info", {
-                title: "Add products first",
-                description: "Create products before building a plan.",
-            });
+            fireToast("info", { title: "Add products first", description: "Create products before building a plan." });
             return;
         }
-
         const nextIndex = plans.length;
         setNewPlanName(`Plan ${PLAN_LETTERS[nextIndex % PLAN_LETTERS.length]}`);
         setNewPlanEndTime("17:00");
@@ -177,119 +141,71 @@ function Dashboard() {
     };
 
     const toggleProductSelect = (id) => {
-        setSelectedProductIds((prev) =>
-            prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]
-        );
+        setSelectedProductIds((prev) => (prev.includes(id) ? prev.filter((pid) => pid !== id) : [...prev, id]));
     };
 
     const toggleSelectAll = () => {
-        const allSelected =
-            products.length > 0 && selectedProductIds.length === products.length;
+        const allSelected = products.length > 0 && selectedProductIds.length === products.length;
         setSelectedProductIds(allSelected ? [] : products.map((product) => product.id));
     };
 
     const createPlan = () => {
         if (selectedProductIds.length === 0) {
-            fireToast("error", {
-                title: "Select at least one product",
-                description: "Pick products to include in the plan.",
-            });
+            fireToast("error", { title: "Select at least one product", description: "Pick products to include in the plan." });
             return;
         }
-
-        const name =
-            newPlanName.trim() ||
-            `Plan ${PLAN_LETTERS[plans.length % PLAN_LETTERS.length]}`;
+        const name = newPlanName.trim() || `Plan ${PLAN_LETTERS[plans.length % PLAN_LETTERS.length]}`;
         const endTime = newPlanEndTime || "17:00";
         const color = PLAN_COLORS[plans.length % PLAN_COLORS.length];
         const items = selectedProductIds.map((id) => {
             const product = productsById.get(id);
-            return {
-                productId: id,
-                qty: product ? product.qty : 0,
-                aiQty: null,
-                aiDir: "same",
-                aiHistory: [],
-            };
+            return { productId: id, qty: product ? product.qty : 0, aiQty: null, aiDir: "same", aiHistory: [] };
         });
 
-        const newPlan = {
-            id: nextPlanId.current,
-            name,
-            color,
-            endTime,
-            items,
-            sessions: [],
-        };
-
+        const newPlan = { id: nextPlanId.current, name, color, endTime, items, sessions: [] };
         nextPlanId.current += 1;
         setPlans((prev) => [...prev, newPlan]);
         setActivePlanId(newPlan.id);
         setNewPlanOpen(false);
-        fireToast("success", {
-            title: "Plan created",
-            description: `${name} is ready to run.`,
-        });
+        fireToast("success", { title: "Plan created", description: `${name} is ready to run.` });
     };
 
-    const togglePlanBody = (planId) => {
-        setActivePlanId((prev) => (prev === planId ? null : planId));
-    };
+    const togglePlanBody = (planId) => setActivePlanId((prev) => (prev === planId ? null : planId));
 
     const updatePlanQty = (planId, productId, value) => {
         setPlans((prev) =>
             prev.map((plan) => {
-                if (plan.id !== planId) {
-                    return plan;
-                }
+                if (plan.id !== planId) return plan;
                 return {
                     ...plan,
-                    items: plan.items.map((item) =>
-                        item.productId === productId ? { ...item, qty: value } : item
-                    ),
+                    items: plan.items.map((item) => (item.productId === productId ? { ...item, qty: value } : item)),
                 };
             })
         );
     };
 
     const deletePlan = (id) => {
-        if (!window.confirm("Delete this plan?")) {
-            return;
-        }
-
+        if (!window.confirm("Delete this plan?")) return;
         setPlans((prev) => prev.filter((plan) => plan.id !== id));
         setActivePlanId((prev) => (prev === id ? null : prev));
-        fireToast("success", {
-            title: "Plan deleted",
-            description: "The plan was removed.",
-        });
+        fireToast("success", { title: "Plan deleted", description: "The plan was removed." });
     };
 
     const createAuditEntries = (items) => {
         const entries = {};
         items.forEach((item) => {
             const product = productsById.get(item.productId);
-            if (!product) {
-                return;
-            }
-            entries[product.id] = {
-                excessQty: "",
-                unit: product.unit,
-                condition: CONDITIONS[0],
-            };
+            if (!product) return;
+            entries[product.id] = { excessQty: "", unit: product.unit, condition: CONDITIONS[0] };
         });
         return entries;
     };
 
     const scheduleSessionEnd = (endTime, items) => {
-        if (sessionEndRef.current) {
-            clearTimeout(sessionEndRef.current);
-        }
+        if (sessionEndRef.current) clearTimeout(sessionEndRef.current);
         const delay = Math.max(0, endTime.getTime() - Date.now());
         sessionEndRef.current = setTimeout(() => {
-            setSession((prev) =>
-                prev ? { ...prev, status: "ended", endedAt: new Date() } : prev
-            );
+            setSession((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : prev));
             setAuditEntries(createAuditEntries(items));
             sessionEndRef.current = null;
         }, delay);
@@ -297,28 +213,17 @@ function Dashboard() {
 
     const proceedWithPlan = (planId) => {
         const plan = plans.find((entry) => entry.id === planId);
-        if (!plan) {
-            return;
-        }
+        if (!plan) return;
 
         const now = new Date();
         const [endHour, endMinute] = plan.endTime.split(":").map(Number);
         const end = new Date(now);
         end.setHours(endHour, endMinute, 0, 0);
-        if (end <= now) {
-            end.setDate(end.getDate() + 1);
-        }
+        if (end <= now) end.setDate(end.getDate() + 1);
 
         const sessionItems = plan.items.map((item) => ({ ...item }));
         setSession({
-            planId,
-            planName: plan.name,
-            planColor: plan.color,
-            startTime: now,
-            endTime: end,
-            items: sessionItems,
-            status: "active",
-            endedAt: null,
+            planId, planName: plan.name, planColor: plan.color, startTime: now, endTime: end, items: sessionItems, status: "active", endedAt: null,
         });
         setAuditEntries({});
         setAuditDisposition(DISPOSITIONS[0]);
@@ -330,9 +235,7 @@ function Dashboard() {
         gotoPage("session");
     };
 
-    const endSessionEarly = () => {
-        setEndModalOpen(true);
-    };
+    const endSessionEarly = () => setEndModalOpen(true);
 
     const confirmEndSession = () => {
         setEndModalOpen(false);
@@ -340,79 +243,42 @@ function Dashboard() {
             clearTimeout(sessionEndRef.current);
             sessionEndRef.current = null;
         }
-        if (!session) {
-            return;
-        }
-        setSession((prev) =>
-            prev ? { ...prev, status: "ended", endedAt: new Date() } : prev
-        );
+        if (!session) return;
+        setSession((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : prev));
         setAuditEntries(createAuditEntries(session.items));
     };
 
     const updateAuditEntry = (productId, patch, fallbackUnit) => {
         setAuditEntries((prev) => {
-            const current = prev[productId] || {
-                excessQty: "",
-                unit: fallbackUnit,
-                condition: CONDITIONS[0],
-            };
-            return {
-                ...prev,
-                [productId]: {
-                    ...current,
-                    ...patch,
-                },
-            };
+            const current = prev[productId] || { excessQty: "", unit: fallbackUnit, condition: CONDITIONS[0] };
+            return { ...prev, [productId]: { ...current, ...patch } };
         });
     };
 
     const auditStats = useMemo(() => {
-        if (!session || session.status !== "ended") {
-            return { planned: 0, excess: 0, pct: 0 };
-        }
-
-        let planned = 0;
-        let excess = 0;
-
+        if (!session || session.status !== "ended") return { planned: 0, excess: 0, pct: 0 };
+        let planned = 0, excess = 0;
         session.items.forEach((item) => {
             const product = productsById.get(item.productId);
-            if (!product) {
-                return;
-            }
+            if (!product) return;
             planned += item.qty;
             const entry = auditEntries[product.id];
             excess += Number(entry?.excessQty) || 0;
         });
-
         const pct = planned > 0 ? Math.round((excess / planned) * 100) : 0;
         return { planned, excess, pct };
     }, [session, productsById, auditEntries]);
 
     const runAI = () => {
-        if (!session || session.status !== "ended") {
-            return;
-        }
-
+        if (!session || session.status !== "ended") return;
         const auditRows = session.items
             .map((item) => {
                 const product = productsById.get(item.productId);
-                if (!product) {
-                    return null;
-                }
-                const entry = auditEntries[product.id] || {
-                    excessQty: "",
-                    unit: product.unit,
-                    condition: CONDITIONS[0],
-                };
+                if (!product) return null;
+                const entry = auditEntries[product.id] || { excessQty: "", unit: product.unit, condition: CONDITIONS[0] };
                 return {
-                    productId: product.id,
-                    name: product.name,
-                    unit: product.unit,
-                    planned: item.qty,
-                    excess: Number(entry.excessQty) || 0,
-                    excUnit: entry.unit || product.unit,
-                    condition: entry.condition,
-                    cost: product.cost,
+                    productId: product.id, name: product.name, unit: product.unit, planned: item.qty, excess: Number(entry.excessQty) || 0,
+                    excUnit: entry.unit || product.unit, condition: entry.condition, cost: product.cost,
                 };
             })
             .filter(Boolean);
@@ -422,10 +288,7 @@ function Dashboard() {
         setAiResults(null);
         setApplyNoteVisible(false);
 
-        if (aiTimerRef.current) {
-            clearTimeout(aiTimerRef.current);
-        }
-
+        if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
         aiTimerRef.current = setTimeout(() => {
             setAiResults(buildAIResults(auditRows));
             setAiStatus("results");
@@ -433,55 +296,23 @@ function Dashboard() {
     };
 
     const applyChanges = () => {
-        if (!session || !aiResults) {
-            return;
-        }
-
+        if (!session || !aiResults) return;
         setPlans((prev) =>
             prev.map((plan) => {
-                if (plan.id !== session.planId) {
-                    return plan;
-                }
-
+                if (plan.id !== session.planId) return plan;
                 const items = plan.items.map((item) => {
-                    const suggestion = aiResults.suggestions.find(
-                        (entry) => entry.productId === item.productId
-                    );
-                    if (!suggestion) {
-                        return item;
-                    }
-
-                    const updatedHistory = [...(item.aiHistory || []), suggestion.dir].slice(
-                        -10
-                    );
-                    const updatedItem = {
-                        ...item,
-                        aiQty: suggestion.newQty,
-                        aiDir: suggestion.dir,
-                        aiHistory: updatedHistory,
-                    };
-                    if (suggestion.dir !== "same") {
-                        updatedItem.qty = suggestion.newQty;
-                    }
+                    const suggestion = aiResults.suggestions.find((entry) => entry.productId === item.productId);
+                    if (!suggestion) return item;
+                    const updatedHistory = [...(item.aiHistory || []), suggestion.dir].slice(-10);
+                    const updatedItem = { ...item, aiQty: suggestion.newQty, aiDir: suggestion.dir, aiHistory: updatedHistory };
+                    if (suggestion.dir !== "same") updatedItem.qty = suggestion.newQty;
                     return updatedItem;
                 });
-
-                return {
-                    ...plan,
-                    items,
-                    sessions: [
-                        ...plan.sessions,
-                        { date: new Date().toISOString(), wastePct: aiResults.wastePct },
-                    ],
-                };
+                return { ...plan, items, sessions: [...plan.sessions, { date: new Date().toISOString(), wastePct: aiResults.wastePct }] };
             })
         );
-
         setApplyNoteVisible(true);
-        fireToast("success", {
-            title: "Plan updated",
-            description: "AI changes saved to the plan.",
-        });
+        fireToast("success", { title: "Plan updated", description: "AI changes saved to the plan." });
     };
 
     const dismissAI = () => {
@@ -491,7 +322,7 @@ function Dashboard() {
     };
 
     return (
-        <div className="app-shell">
+        <div className="min-h-screen bg-background">
             <SileoToastProvider position="bottom-right" />
             <Topbar activePage={page} onNavigate={gotoPage} />
 
