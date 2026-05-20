@@ -23,11 +23,11 @@ export const getProductPlanningLogs = async () => {
 };
 
 export const createProductPlanning = async (planning) => {
-  const { date, is_ready_analysis, details } = planning;
+  const { name, date, end_time, is_ready_analysis, details } = planning;
 
   const { data: plan, error: planError } = await supabase
     .from("production_plans")
-    .insert({ date, is_ready_analysis: is_ready_analysis ?? false })
+    .insert({ name, date, end_time: end_time ?? null, is_ready_analysis: is_ready_analysis ?? false })
     .select()
     .single();
 
@@ -41,6 +41,18 @@ export const createProductPlanning = async (planning) => {
   if (detailsError) throw detailsError;
 
   return { ...plan, details: planDetails };
+};
+
+export const updateProductDetailAmount = async (detailId, amount) => {
+  const { data, error } = await supabase
+    .from("production_details")
+    .update({ amount })
+    .eq("id", detailId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const updateProductDetailExcess = async (planId, details) => {
@@ -152,6 +164,22 @@ const runAnalysis = async (planId) => {
     .insert(suggestions);
 
   if (insertError) throw insertError;
+};
+
+export const updatePlanStatus = async (id, status) => {
+  const patch = { status };
+  if (status === "active") patch.started_at = new Date().toISOString();
+  if (status === "ended") patch.ended_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("production_plans")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 export const updateProductPlanning = async (id, planning) => {

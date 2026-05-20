@@ -17,4 +17,11 @@ export const api = {
     createProduct: (body) => req("POST", "/products", body),
     updateProduct: (id, body) => req("PATCH", `/products/${id}`, body),
     deleteProduct: (id) => req("DELETE", `/products/${id}`),
+
+    getLatestPlan: () => req("GET", "/product-planning/latest"),
+    getPlanLogs: () => req("GET", "/product-planning/logs"),
+    createPlan: (body) => req("POST", "/product-planning", body),
+    updateDetailAmount: (detailId, amount) => req("PATCH", `/product-planning/details/${detailId}/amount`, { amount }),
+    updatePlanStatus: (id, status) => req("PATCH", `/product-planning/${id}/status`, { status }),
+    deletePlan: (id) => req("DELETE", `/product-planning/${id}`),
 };

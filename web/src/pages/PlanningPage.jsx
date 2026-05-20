@@ -63,7 +63,7 @@ export default function PlanningPage({
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
-                    {plans.map((plan) => {
+                    {plans.map((plan, index) => {
                         const totalItems = plan.items.length;
                         const hasAI = plan.items.some((item) => item.aiQty !== null);
                         const sessionCount = plan.sessions.length;
@@ -71,6 +71,7 @@ export default function PlanningPage({
                             (item) => item.aiDir === "down" || item.aiDir === "up"
                         ).length;
                         const isActive = session && session.planId === plan.id && session.status === "active";
+                        const isLocked = plan.status === "active" || plan.status === "ended";
                         const isOpen = activePlanId === plan.id;
 
                         return (
@@ -88,7 +89,7 @@ export default function PlanningPage({
                                         className="w-9 h-9 rounded-lg flex items-center justify-center text-[15px] font-extrabold text-white shrink-0"
                                         style={{ background: plan.color }}
                                     >
-                                        {planLetters[(plan.id - 1) % planLetters.length]}
+                                        {planLetters[index % planLetters.length]}
                                     </div>
                                     <div className="flex-1">
                                         <div className="text-sm font-bold text-foreground">{plan.name}</div>
@@ -165,6 +166,7 @@ export default function PlanningPage({
                                                                             className="w-17.5 h-7 text-xs text-right inline-flex bg-background"
                                                                             type="number"
                                                                             min="1"
+                                                                            disabled={isLocked}
                                                                             value={item.qty}
                                                                             onChange={(e) => onUpdatePlanQty(plan.id, product.id, Number(e.target.value))}
                                                                         />
@@ -184,6 +186,7 @@ export default function PlanningPage({
                                                                                 type="number"
                                                                                 min="0"
                                                                                 step="0.1"
+                                                                                disabled={isLocked}
                                                                                 value={item.liquidQty ?? product.batch_liquid_volume ?? 0}
                                                                                 onChange={(e) => onUpdatePlanQty(plan.id, product.id, Number(e.target.value), "liquidQty")}
                                                                             />
@@ -202,13 +205,15 @@ export default function PlanningPage({
                                             </div>
                                         )}
                                         <div className="mt-3.5 flex flex-col sm:flex-row gap-2">
-                                            {!isActive ? (
+                                            {!isActive && plan.status === "idle" ? (
                                                 <Button type="button" onClick={() => onProceedWithPlan(plan.id)}>
                                                     Proceed with {plan.name}
                                                 </Button>
-                                            ) : (
-                                                <Button disabled type="button">Session already active</Button>
-                                            )}
+                                            ) : isActive ? (
+                                                <Button disabled type="button">Session in progress</Button>
+                                            ) : plan.status === "ended" ? (
+                                                <Button disabled type="button">Session ended</Button>
+                                            ) : null}
                                             <Button variant="destructive" size="sm" type="button" onClick={() => onDeletePlan(plan.id)}>
                                                 Delete plan
                                             </Button>

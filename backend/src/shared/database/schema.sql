@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS production_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL DEFAULT 'Plan',
+    end_time TIME DEFAULT NULL,
+    status VARCHAR(20) DEFAULT 'idle',
+    started_at TIMESTAMP DEFAULT NULL,
+    ended_at TIMESTAMP DEFAULT NULL,
     is_ready_analysis BOOLEAN DEFAULT FALSE,
     date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

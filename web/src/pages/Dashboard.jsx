@@ -58,12 +58,79 @@ function Dashboard() {
     const aiTimerRef = useRef(null);
     const sessionEndRef = useRef(null);
 
+    const mapPlan = (p, index, color) => ({
+        id: p.id,
+        name: p.name,
+        color: color ?? PLAN_COLORS[index % PLAN_COLORS.length],
+        endTime: p.end_time ? p.end_time.slice(0, 5) : "17:00",
+        date: p.date,
+        status: p.status ?? "idle",
+        started_at: p.started_at ?? null,
+        ended_at: p.ended_at ?? null,
+        items: (p.production_details || p.details || []).map((d) => ({
+            productId: d.p_fk,
+            qty: Number(d.amount),
+            liquidQty: null,
+            aiQty: null,
+            aiDir: "same",
+            aiHistory: [],
+            detailId: d.id,
+            excess: d.excess,
+        })),
+        sessions: [],
+    });
+
     useEffect(() => {
         api.getProducts()
-            .then((data) => {
-                setProducts(data.map(mapProduct));
-            })
+            .then((data) => setProducts(data.map(mapProduct)))
             .catch(() => fireToast("error", { title: "Failed to load products" }));
+        api.getPlanLogs()
+            .then((data) => {
+                const mapped = data.map((p, i) => mapPlan(p, i));
+                setPlans(mapped);
+                nextPlanId.current = data.length + 1;
+                // Restore active session on refresh
+                const activePlan = mapped.find((p) => p.status === "active");
+                if (activePlan) {
+                    const now = new Date();
+                    const [endHour, endMinute] = activePlan.endTime.split(":").map(Number);
+                    const end = new Date(now);
+                    end.setHours(endHour, endMinute, 0, 0);
+                    if (end <= now) end.setDate(end.getDate() + 1);
+                    const sessionItems = activePlan.items.map((item) => ({ ...item }));
+                    setSession({
+                        planId: activePlan.id,
+                        planName: activePlan.name,
+                        planColor: activePlan.color,
+                        startTime: activePlan.started_at ? new Date(activePlan.started_at) : now,
+                        endTime: end,
+                        items: sessionItems,
+                        status: "active",
+                        endedAt: null,
+                    });
+                    setActivePlanId(activePlan.id);
+                    scheduleSessionEnd(end, sessionItems);
+                    gotoPage("session");
+                }
+                // Restore ended session awaiting audit
+                const endedPlan = mapped.find((p) => p.status === "ended");
+                if (!activePlan && endedPlan) {
+                    const sessionItems = endedPlan.items.map((item) => ({ ...item }));
+                    setSession({
+                        planId: endedPlan.id,
+                        planName: endedPlan.name,
+                        planColor: endedPlan.color,
+                        startTime: endedPlan.started_at ? new Date(endedPlan.started_at) : new Date(),
+                        endTime: new Date(),
+                        items: sessionItems,
+                        status: "ended",
+                        endedAt: endedPlan.ended_at ? new Date(endedPlan.ended_at) : new Date(),
+                    });
+                    setActivePlanId(endedPlan.id);
+                    setAuditEntries(createAuditEntriesFromItems(sessionItems));
+                }
+            })
+            .catch(() => fireToast("error", { title: "Failed to load plans" }));
     }, []);
 
     const mapProduct = (p) => ({
@@ -295,6 +362,7 @@ function Dashboard() {
         const name = newPlanName.trim() || `Plan ${PLAN_LETTERS[plans.length % PLAN_LETTERS.length]}`;
         const endTime = newPlanEndTime || "17:00";
         const color = PLAN_COLORS[plans.length % PLAN_COLORS.length];
+        const today = new Date().toISOString().split("T")[0];
         const items = selectedProductIds.map((id) => {
             const product = productsById.get(id);
             return {
@@ -306,16 +374,33 @@ function Dashboard() {
                 aiHistory: [],
             };
         });
-
-        const newPlan = { id: nextPlanId.current, name, color, endTime, items, sessions: [] };
-        nextPlanId.current += 1;
-        setPlans((prev) => [...prev, newPlan]);
-        setActivePlanId(newPlan.id);
+        const tempId = `temp-${Date.now()}`;
+        const optimisticPlan = { id: tempId, name, color, endTime, date: today, items, sessions: [], _saving: true };
+        setPlans((prev) => [...prev, optimisticPlan]);
+        setActivePlanId(tempId);
         setNewPlanOpen(false);
-        fireToast("success", { title: "Plan created", description: `${name} is ready to run.` });
+        api.createPlan({
+            name,
+            date: today,
+            end_time: endTime,
+            details: items.map((item) => ({ p_fk: item.productId, amount: item.qty })),
+        })
+            .then((p) => {
+                const realPlan = mapPlan(p, plans.length, color);
+                setPlans((prev) => prev.map((pl) => pl.id === tempId ? realPlan : pl));
+                setActivePlanId(realPlan.id);
+                fireToast("success", { title: "Plan created", description: `${name} is ready to run.` });
+            })
+            .catch((err) => {
+                setPlans((prev) => prev.filter((pl) => pl.id !== tempId));
+                setActivePlanId(null);
+                fireToast("error", { title: "Failed to create plan", description: err.message });
+            });
     };
 
     const togglePlanBody = (planId) => setActivePlanId((prev) => (prev === planId ? null : planId));
+
+    const qtyDebounceRef = useRef({});
 
     const updatePlanQty = (planId, productId, value, field = "qty") => {
         setPlans((prev) =>
@@ -327,16 +412,33 @@ function Dashboard() {
                 };
             })
         );
+        // Persist amount to backend (debounced 600ms), only for solid qty
+        if (field === "qty") {
+            const plan = plans.find((p) => p.id === planId);
+            const item = plan?.items.find((i) => i.productId === productId);
+            if (!item?.detailId) return;
+            const key = item.detailId;
+            if (qtyDebounceRef.current[key]) clearTimeout(qtyDebounceRef.current[key]);
+            qtyDebounceRef.current[key] = setTimeout(() => {
+                api.updateDetailAmount(item.detailId, value)
+                    .catch(() => fireToast("error", { title: "Failed to save quantity" }));
+            }, 600);
+        }
     };
 
     const deletePlan = (id) => {
         if (!window.confirm("Delete this plan?")) return;
         setPlans((prev) => prev.filter((plan) => plan.id !== id));
         setActivePlanId((prev) => (prev === id ? null : prev));
-        fireToast("success", { title: "Plan deleted", description: "The plan was removed." });
+        api.deletePlan(id)
+            .then(() => fireToast("success", { title: "Plan deleted", description: "The plan was removed." }))
+            .catch((err) => {
+                fireToast("error", { title: "Failed to delete plan", description: err.message });
+                api.getPlanLogs().then((data) => setPlans(data.map((p, i) => mapPlan(p, i))));
+            });
     };
 
-    const createAuditEntries = (items) => {
+    const createAuditEntriesFromItems = (items) => {
         const entries = {};
         items.forEach((item) => {
             const product = productsById.get(item.productId);
@@ -351,12 +453,21 @@ function Dashboard() {
         return entries;
     };
 
+    const createAuditEntries = (items) => createAuditEntriesFromItems(items);
+
     const scheduleSessionEnd = (endTime, items) => {
         if (sessionEndRef.current) clearTimeout(sessionEndRef.current);
         const delay = Math.max(0, endTime.getTime() - Date.now());
         sessionEndRef.current = setTimeout(() => {
-            setSession((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : prev));
-            setAuditEntries(createAuditEntries(items));
+            setSession((prev) => {
+                if (!prev) return prev;
+                const endedAt = new Date();
+                api.updatePlanStatus(prev.planId, "ended")
+                    .catch(() => {});
+                setPlans((p) => p.map((pl) => pl.id === prev.planId ? { ...pl, status: "ended", ended_at: endedAt.toISOString() } : pl));
+                setAuditEntries(createAuditEntries(prev.items));
+                return { ...prev, status: "ended", endedAt };
+            });
             sessionEndRef.current = null;
         }, delay);
     };
@@ -375,6 +486,7 @@ function Dashboard() {
         setSession({
             planId, planName: plan.name, planColor: plan.color, startTime: now, endTime: end, items: sessionItems, status: "active", endedAt: null,
         });
+        setPlans((prev) => prev.map((p) => p.id === planId ? { ...p, status: "active", started_at: now.toISOString() } : p));
         setAuditEntries({});
         setAuditDisposition(DISPOSITIONS[0]);
         setAuditNotes("");
@@ -383,6 +495,8 @@ function Dashboard() {
         setApplyNoteVisible(false);
         scheduleSessionEnd(end, sessionItems);
         gotoPage("session");
+        api.updatePlanStatus(planId, "active")
+            .catch(() => fireToast("error", { title: "Failed to save session status" }));
     };
 
     const endSessionEarly = () => setEndModalOpen(true);
@@ -394,8 +508,12 @@ function Dashboard() {
             sessionEndRef.current = null;
         }
         if (!session) return;
-        setSession((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : prev));
+        const endedAt = new Date();
+        setSession((prev) => (prev ? { ...prev, status: "ended", endedAt } : prev));
+        setPlans((prev) => prev.map((p) => p.id === session.planId ? { ...p, status: "ended", ended_at: endedAt.toISOString() } : p));
         setAuditEntries(createAuditEntries(session.items));
+        api.updatePlanStatus(session.planId, "ended")
+            .catch(() => fireToast("error", { title: "Failed to save session end status" }));
     };
 
     const updateAuditEntry = (productId, patch, fallbackUnit) => {
