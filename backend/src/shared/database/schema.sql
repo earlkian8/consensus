@@ -3,6 +3,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) DEFAULT 'Main dish',
+    dish_type VARCHAR(50) NOT NULL,
+    batch_solid_count NUMERIC(10, 2) DEFAULT NULL,
+    unit_solid VARCHAR(50) DEFAULT NULL,
+    batch_liquid_volume NUMERIC(10, 2) DEFAULT NULL,
+    unit_liquid VARCHAR(50) DEFAULT NULL,
+    notes TEXT DEFAULT NULL,
     picture TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

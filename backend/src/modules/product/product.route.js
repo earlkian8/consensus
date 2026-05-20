@@ -16,6 +16,7 @@ import {
 const router = Router();
 
 // Products
+router.post("/upload-image", productController.uploadProductImage);
 router.get("/", productController.getAllProducts);
 router.post("/", validate(createProductSchema), productController.createProduct);
 router.patch("/:id", validate(updateProductSchema), productController.updateProduct);

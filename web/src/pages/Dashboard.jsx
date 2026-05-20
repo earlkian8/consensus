@@ -20,10 +20,11 @@ import {
     PRODUCT_CATEGORIES,
 } from "@/lib/consensus-data";
 import { buildAIResults } from "@/lib/consensus-ai";
+import { api } from "@/lib/api";
 
 function Dashboard() {
     const [page, setPage] = useState("products");
-    const [products, setProducts] = useState(DEFAULT_PRODUCTS);
+    const [products, setProducts] = useState([]);
     const [plans, setPlans] = useState([]);
     const [activePlanId, setActivePlanId] = useState(null);
     const [session, setSession] = useState(null);
@@ -52,10 +53,34 @@ function Dashboard() {
     const [aiResults, setAiResults] = useState(null);
     const [applyNoteVisible, setApplyNoteVisible] = useState(false);
 
-    const nextProdId = useRef(DEFAULT_PRODUCTS.length + 1);
+    const nextProdId = useRef(1);
     const nextPlanId = useRef(1);
     const aiTimerRef = useRef(null);
     const sessionEndRef = useRef(null);
+
+    useEffect(() => {
+        api.getProducts()
+            .then((data) => {
+                setProducts(data.map(mapProduct));
+            })
+            .catch(() => fireToast("error", { title: "Failed to load products" }));
+    }, []);
+
+    const mapProduct = (p) => ({
+        id: p.id,
+        name: p.name,
+        cat: p.category ?? "Main dish",
+        dish_type: p.dish_type,
+        batch_solid_count: p.batch_solid_count,
+        batch_liquid_volume: p.batch_liquid_volume,
+        unit_solid: p.unit_solid,
+        unit_liquid: p.unit_liquid,
+        unit: p.unit_solid || p.unit_liquid || "pieces",
+        qty: p.batch_solid_count || p.batch_liquid_volume || 0,
+        notes: p.notes || "",
+        image: p.picture || "",
+        cost: 0,
+    });
 
     const productsById = useMemo(() => {
         const map = new Map();
@@ -103,6 +128,30 @@ function Dashboard() {
 
     const closeCreateProductModal = () => setCreateProductOpen(false);
 
+    const buildPayload = async (draft, dt) => {
+        const defaultSolidUnit = dt === "SOUP_STEW" ? null : dt === "DRY_SCOOPED" ? "scoops" : "pieces";
+        const unit_solid = dt === "SOUP_STEW" ? null : (draft.unit_solid || defaultSolidUnit);
+        const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
+        let picture = null;
+        if (draft.image && draft.image.startsWith("data:")) {
+            const { url } = await api.uploadProductImage(draft.image, draft.name.trim());
+            picture = url;
+        } else if (draft.image) {
+            picture = draft.image;
+        }
+        return {
+            name: draft.name.trim(),
+            category: draft.category || PRODUCT_CATEGORIES[0],
+            dish_type: dt,
+            batch_solid_count: unit_solid ? (Number(draft.batch_solid_count) || null) : null,
+            batch_liquid_volume: unit_liquid ? (Number(draft.batch_liquid_volume) || null) : null,
+            unit_solid,
+            unit_liquid,
+            notes: draft.notes.trim() || null,
+            picture,
+        };
+    };
+
     const addProduct = () => {
         const name = productDraft.name.trim();
         if (!name) {
@@ -114,37 +163,50 @@ function Dashboard() {
             return false;
         }
         const dt = productDraft.dish_type;
-        const defaultSolidUnit = dt === "SOUP_STEW" ? null : dt === "DRY_SCOOPED" ? "scoops" : "pieces";
-        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || defaultSolidUnit);
+        // Optimistic product with _saving flag
+        const tempId = `temp-${Date.now()}`;
+        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || (dt === "DRY_SCOOPED" ? "scoops" : "pieces"));
         const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
-        const newProduct = {
-            id: nextProdId.current,
+        const optimistic = {
+            id: tempId,
             name,
             cat: productDraft.category || PRODUCT_CATEGORIES[0],
             dish_type: dt,
-            batch_solid_count: unit_solid ? (Number(productDraft.batch_solid_count) || null) : null,
-            batch_liquid_volume: unit_liquid ? (Number(productDraft.batch_liquid_volume) || null) : null,
+            batch_solid_count: Number(productDraft.batch_solid_count) || null,
+            batch_liquid_volume: Number(productDraft.batch_liquid_volume) || null,
             unit_solid,
             unit_liquid,
             unit: unit_solid || unit_liquid || "pieces",
-            qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || 10,
-            cost: Number(productDraft.price_per_portion) || 0,
-            notes: productDraft.notes.trim(),
+            qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || 0,
+            notes: productDraft.notes.trim() || "",
             image: productDraft.image || "",
+            cost: 0,
+            _saving: true,
         };
-        nextProdId.current += 1;
-        setProducts((prev) => [...prev, newProduct]);
+        setProducts((prev) => [...prev, optimistic]);
         setProductDraft(EMPTY_DRAFT);
-        fireToast("success", { title: "Product added", description: `${name} is ready for planning.` });
-        return true;
+        return buildPayload({ ...productDraft, name }, dt)
+            .then((payload) => api.createProduct(payload))
+            .then((p) => {
+                setProducts((prev) => prev.map((prod) => prod.id === tempId ? mapProduct(p) : prod));
+                fireToast("success", { title: "Product added", description: `${name} is ready for planning.` });
+            })
+            .catch((err) => {
+                setProducts((prev) => prev.filter((prod) => prod.id !== tempId));
+                fireToast("error", { title: "Failed to create product", description: err.message });
+            });
     };
 
     const deleteProduct = (id) => {
-        setProducts((prev) => prev.filter((product) => product.id !== id));
-        setPlans((prev) =>
-            prev.map((plan) => ({ ...plan, items: plan.items.filter((item) => item.productId !== id) }))
-        );
-        fireToast("success", { title: "Product removed", description: "Removed from catalog and any linked plans." });
+        api.deleteProduct(id)
+            .then(() => {
+                setProducts((prev) => prev.filter((p) => p.id !== id));
+                setPlans((prev) =>
+                    prev.map((plan) => ({ ...plan, items: plan.items.filter((item) => item.productId !== id) }))
+                );
+                fireToast("success", { title: "Product removed", description: "Removed from catalog and any linked plans." });
+            })
+            .catch((err) => fireToast("error", { title: "Failed to delete product", description: err.message }));
     };
 
     const editProduct = (id) => {
@@ -170,32 +232,37 @@ function Dashboard() {
         const name = productDraft.name.trim();
         if (!name || !productDraft.dish_type) return false;
         const dt = productDraft.dish_type;
-        const defaultSolidUnit = dt === "SOUP_STEW" ? null : dt === "DRY_SCOOPED" ? "scoops" : "pieces";
-        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || defaultSolidUnit);
-        const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
         const editId = productDraft._editId;
-
-        setProducts((prev) => prev.map((p) => {
-            if (p.id !== editId) return p;
-            return {
-                ...p,
-                name,
-                cat: productDraft.category || PRODUCT_CATEGORIES[0],
-                dish_type: dt,
-                batch_solid_count: unit_solid ? (Number(productDraft.batch_solid_count) || null) : null,
-                batch_liquid_volume: unit_liquid ? (Number(productDraft.batch_liquid_volume) || null) : null,
-                unit_solid,
-                unit_liquid,
-                unit: unit_solid || unit_liquid || "pieces",
-                qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || p.qty,
-                cost: Number(productDraft.price_per_portion) || 0,
-                notes: productDraft.notes.trim(),
-                image: productDraft.image || "",
-            };
-        }));
+        // Optimistic update
+        const unit_solid = dt === "SOUP_STEW" ? null : (productDraft.unit_solid || (dt === "DRY_SCOOPED" ? "scoops" : "pieces"));
+        const unit_liquid = (dt === "SOUP_STEW" || dt === "SOLID_IN_SOUP") ? "liters" : null;
+        const optimistic = {
+            id: editId,
+            name,
+            cat: productDraft.category || PRODUCT_CATEGORIES[0],
+            dish_type: dt,
+            batch_solid_count: Number(productDraft.batch_solid_count) || null,
+            batch_liquid_volume: Number(productDraft.batch_liquid_volume) || null,
+            unit_solid,
+            unit_liquid,
+            unit: unit_solid || unit_liquid || "pieces",
+            qty: Number(productDraft.batch_solid_count) || Number(productDraft.batch_liquid_volume) || 0,
+            notes: productDraft.notes.trim() || "",
+            image: productDraft.image || "",
+            cost: 0,
+            _saving: true,
+        };
+        setProducts((prev) => prev.map((p) => p.id === editId ? optimistic : p));
         setProductDraft(EMPTY_DRAFT);
-        fireToast("success", { title: "Product updated", description: `${name} has been updated.` });
-        return true;
+        return buildPayload({ ...productDraft, name }, dt)
+            .then((payload) => api.updateProduct(editId, payload))
+            .then((p) => {
+                setProducts((prev) => prev.map((prod) => prod.id === editId ? mapProduct(p) : prod));
+                fireToast("success", { title: "Product updated", description: `${name} has been updated.` });
+            })
+            .catch((err) => {
+                fireToast("error", { title: "Failed to update product", description: err.message });
+            });
     };
 
     const openNewPlanModal = () => {
