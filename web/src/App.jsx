@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import { Login, Register, Dashboard, NotFound, LandingPage } from "@/pages";
 
-// yow
+// yawwards
 export default function App() {
   return (
     <BrowserRouter>
