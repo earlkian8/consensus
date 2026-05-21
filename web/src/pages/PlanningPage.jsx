@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
-import { Input } from "@/components/shadcnUI/input";
 import { Card } from "@/components/shadcnUI/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/shadcnUI/sheet";
 import {
@@ -231,12 +230,8 @@ export default function PlanningPage({
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [proceedConfirmId, setProceedConfirmId] = useState(null);
 
-    const activePlan = plans.find((p) => session && session.planId === p.id && session.status === "active");
-    const latestIdlePlan = [...plans].reverse().find((p) => p.status === "idle");
-    const currentPlan = activePlan || latestIdlePlan || null;
-    const currentIndex = currentPlan ? plans.indexOf(currentPlan) : 0;
-
-    const historyPlans = plans.filter((p) => p !== currentPlan);
+    const mainPlans = plans.filter((p) => p.status === "idle" || p.status === "active");
+    const historyPlans = plans.filter((p) => p.status === "ended");
 
     const totalProducts = plans.reduce((sum, p) => sum + p.items.length, 0);
     const totalSessions = plans.reduce((sum, p) => sum + (p.sessions?.length || 0), 0);
@@ -340,7 +335,7 @@ export default function PlanningPage({
                     </div>
                     <Button type="button" onClick={onGoToProducts}>Go to Products →</Button>
                 </div>
-            ) : !currentPlan ? (
+            ) : mainPlans.length === 0 ? (
                 <div className="text-center py-12 px-3.5">
                     <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mx-auto mb-4">
                         <ClipboardList size={28} className="text-primary" />
@@ -355,21 +350,26 @@ export default function PlanningPage({
                     </Button>
                 </div>
             ) : (
-                <PlanCard
-                    plan={currentPlan}
-                    index={currentIndex}
-                    planLetters={planLetters}
-                    session={session}
-                    productsById={productsById}
-                    activePlanId={activePlanId}
-                    onTogglePlan={onTogglePlan}
-                    onUpdatePlanQty={onUpdatePlanQty}
-                    onProceedWithPlan={onProceedWithPlan}
-                    onDeletePlan={onDeletePlan}
-                    readonly={false}
-                    onConfirmProceed={(id) => setProceedConfirmId(id)}
-                    onConfirmDelete={(id) => setDeleteConfirmId(id)}
-                />
+                <div className="flex flex-col gap-3">
+                    {mainPlans.map((plan) => (
+                        <PlanCard
+                            key={plan.id}
+                            plan={plan}
+                            index={plans.indexOf(plan)}
+                            planLetters={planLetters}
+                            session={session}
+                            productsById={productsById}
+                            activePlanId={activePlanId}
+                            onTogglePlan={onTogglePlan}
+                            onUpdatePlanQty={onUpdatePlanQty}
+                            onProceedWithPlan={onProceedWithPlan}
+                            onDeletePlan={onDeletePlan}
+                            readonly={false}
+                            onConfirmProceed={(id) => setProceedConfirmId(id)}
+                            onConfirmDelete={(id) => setDeleteConfirmId(id)}
+                        />
+                    ))}
+                </div>
             )}
 
             {/* Proceed confirmation */}
