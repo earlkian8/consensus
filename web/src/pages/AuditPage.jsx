@@ -137,7 +137,7 @@ export default function AuditPage({
                                         )}
                                         <label className="flex items-center gap-2 cursor-pointer py-2">
                                             <input
-                                                type="  "
+                                                type="checkbox"
                                                 className="w-4 h-4 accent-primary rounded cursor-pointer"
                                                 checked={entry.condition === "Repurposable"}
                                                 onChange={(event) =>
