@@ -66,10 +66,10 @@ export default function AiInsightsPage({
                             <div className="text-xl font-bold text-amber-600">{aiResults.adjustedCount}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Items to adjust</div>
                         </Card>
-                        <Card className="p-3 bg-secondary/50 border-none">
+                        {/* <Card className="p-3 bg-secondary/50 border-none">
                             <div className="text-xl font-bold text-primary">PHP {aiResults.totalSaved.toLocaleString()}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Est. savings</div>
-                        </Card>
+                        </Card> */}
                     </div>
 
                     {aiResults.chartData.length > 0 && (

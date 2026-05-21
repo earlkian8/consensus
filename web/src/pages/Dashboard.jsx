@@ -585,7 +585,12 @@ function Dashboard() {
                 return api.getLatestAnalytics();
             })
             .then(({ plan: analysisPlan, analysis }) => {
-                const rows = analysis.map((a) => {
+                // ⚠️ Filter out backend analysis for products NOT in this current session
+                const relevantAnalysis = analysis.filter((a) =>
+                    session.items.some((i) => i.productId === a.p_fk)
+                );
+
+                const rows = relevantAnalysis.map((a) => {
                     const product = productsById.get(a.p_fk);
                     const sessionItem = session.items.find((i) => i.productId === a.p_fk);
                     const planned = sessionItem?.qty ?? 0;
@@ -739,96 +744,96 @@ function Dashboard() {
             <Sidebar activePage={page} onNavigate={gotoPage} />
             <div className="flex-1 min-w-0 overflow-hidden">
 
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={page}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                >
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={page}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
 
-            {page === "products" && (
-            <ProductsPage
-                active={true}
-                products={products}
-                productDraft={productDraft}
-                onDraftChange={updateProductDraft}
-                onAddProduct={addProduct}
-                onEditProduct={editProduct}
-                onSaveEditedProduct={saveEditedProduct}
-                onDeleteProduct={deleteProduct}
-                createProductOpen={createProductOpen}
-                onOpenCreateProduct={openCreateProductModal}
-                onCloseCreateProduct={closeCreateProductModal}
-                onContinue={() => gotoPage("planning")}
-            />
-            )}
+                        {page === "products" && (
+                            <ProductsPage
+                                active={true}
+                                products={products}
+                                productDraft={productDraft}
+                                onDraftChange={updateProductDraft}
+                                onAddProduct={addProduct}
+                                onEditProduct={editProduct}
+                                onSaveEditedProduct={saveEditedProduct}
+                                onDeleteProduct={deleteProduct}
+                                createProductOpen={createProductOpen}
+                                onOpenCreateProduct={openCreateProductModal}
+                                onCloseCreateProduct={closeCreateProductModal}
+                                onContinue={() => gotoPage("planning")}
+                            />
+                        )}
 
-            {page === "planning" && (
-            <PlanningPage
-                active={true}
-                products={products}
-                plans={plans}
-                activePlanId={activePlanId}
-                session={session}
-                planLetters={PLAN_LETTERS}
-                productsById={productsById}
-                onOpenNewPlanModal={openNewPlanModal}
-                onTogglePlan={togglePlanBody}
-                onUpdatePlanQty={updatePlanQty}
-                onProceedWithPlan={proceedWithPlan}
-                onDeletePlan={deletePlan}
-                onGoToProducts={() => gotoPage("products")}
-            />
-            )}
+                        {page === "planning" && (
+                            <PlanningPage
+                                active={true}
+                                products={products}
+                                plans={plans}
+                                activePlanId={activePlanId}
+                                session={session}
+                                planLetters={PLAN_LETTERS}
+                                productsById={productsById}
+                                onOpenNewPlanModal={openNewPlanModal}
+                                onTogglePlan={togglePlanBody}
+                                onUpdatePlanQty={updatePlanQty}
+                                onProceedWithPlan={proceedWithPlan}
+                                onDeletePlan={deletePlan}
+                                onGoToProducts={() => gotoPage("products")}
+                            />
+                        )}
 
-            {page === "session" && (
-            <SessionPage
-                active={true}
-                session={session}
-                productsById={productsById}
-                onEndSessionEarly={endSessionEarly}
-                onGoToPlanning={() => gotoPage("planning")}
-                onGoToAudit={() => gotoPage("audit")}
-            />
-            )}
+                        {page === "session" && (
+                            <SessionPage
+                                active={true}
+                                session={session}
+                                productsById={productsById}
+                                onEndSessionEarly={endSessionEarly}
+                                onGoToPlanning={() => gotoPage("planning")}
+                                onGoToAudit={() => gotoPage("audit")}
+                            />
+                        )}
 
-            {page === "audit" && (
-            <AuditPage
-                active={true}
-                session={session}
-                productsById={productsById}
-                auditEntries={auditEntries}
-                auditStats={auditStats}
-                dispositions={DISPOSITIONS}
-                conditions={CONDITIONS}
-                auditDisposition={auditDisposition}
-                auditNotes={auditNotes}
-                onAuditEntryChange={updateAuditEntry}
-                onDispositionChange={setAuditDisposition}
-                onNotesChange={setAuditNotes}
-                onRunAI={runAI}
-                onGoToPlanning={() => gotoPage("planning")}
-            />
-            )}
+                        {page === "audit" && (
+                            <AuditPage
+                                active={true}
+                                session={session}
+                                productsById={productsById}
+                                auditEntries={auditEntries}
+                                auditStats={auditStats}
+                                dispositions={DISPOSITIONS}
+                                conditions={CONDITIONS}
+                                auditDisposition={auditDisposition}
+                                auditNotes={auditNotes}
+                                onAuditEntryChange={updateAuditEntry}
+                                onDispositionChange={setAuditDisposition}
+                                onNotesChange={setAuditNotes}
+                                onRunAI={runAI}
+                                onGoToPlanning={() => gotoPage("planning")}
+                            />
+                        )}
 
-            {page === "ai" && (
-            <AiInsightsPage
-                active={true}
-                aiStatus={aiStatus}
-                aiResults={aiResults}
-                session={session}
-                chartConfig={chartConfig}
-                applyNoteVisible={applyNoteVisible}
-                onGoToAudit={() => gotoPage("audit")}
-                onApplyChanges={applyChanges}
-                onDismissAI={dismissAI}
-            />
-            )}
+                        {page === "ai" && (
+                            <AiInsightsPage
+                                active={true}
+                                aiStatus={aiStatus}
+                                aiResults={aiResults}
+                                session={session}
+                                chartConfig={chartConfig}
+                                applyNoteVisible={applyNoteVisible}
+                                onGoToAudit={() => gotoPage("audit")}
+                                onApplyChanges={applyChanges}
+                                onDismissAI={dismissAI}
+                            />
+                        )}
 
-                </motion.div>
-            </AnimatePresence>
+                    </motion.div>
+                </AnimatePresence>
 
                 <EndSessionModal
                     open={endModalOpen}
