@@ -32,6 +32,7 @@ export default function AuditPage({
                         Logging excess for: {session.planName}
                     </p>
 
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
                         <Card className="p-3 bg-secondary/50 border-none">
                             <div className="text-xl font-bold text-foreground">
@@ -71,8 +72,11 @@ export default function AuditPage({
                             const entry = auditEntries[product.id] || {
                                 excessQty: "",
                                 unit: product.unit,
-                                condition: conditions[0],
+                                condition: "Repurposable",
                             };
+
+                            const isStewOnly = product.dish_type === "SOUP_STEW";
+                            const hasLiquid = product.unit_liquid && !isStewOnly;
 
                             return (
                                 <Card className="p-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300" key={product.id}>
@@ -81,7 +85,7 @@ export default function AuditPage({
                                             <div className="text-[13px] font-bold text-foreground">{product.name}</div>
                                             <div className="text-[10px] text-muted-foreground">
                                                 Planned: {item.qty} {product.unit_solid || product.unit}
-                                                {product.unit_liquid && (
+                                                {hasLiquid && (
                                                     <> + {item.liquidQty ?? product.batch_liquid_volume ?? 0} {product.unit_liquid}</>
                                                 )}
                                             </div>
@@ -90,15 +94,15 @@ export default function AuditPage({
                                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
                                                 {item.qty} {product.unit_solid || product.unit}
                                             </Badge>
-                                            {product.unit_liquid && (
+                                            {hasLiquid && (
                                                 <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
                                                     {item.liquidQty ?? product.batch_liquid_volume ?? 0} {product.unit_liquid}
                                                 </Badge>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-background">
-                                        <div className="flex flex-col gap-1">
+                                    <div className="p-3 flex flex-wrap items-end gap-3 bg-background">
+                                        <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
                                             <label className="text-[11px] font-semibold text-muted-foreground">
                                                 Excess {product.unit_solid || product.unit}
                                             </label>
@@ -113,8 +117,8 @@ export default function AuditPage({
                                                 placeholder="0"
                                             />
                                         </div>
-                                        {product.unit_liquid && (
-                                            <div className="flex flex-col gap-1">
+                                        {hasLiquid && (
+                                            <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
                                                 <label className="text-[11px] font-semibold text-muted-foreground">
                                                     Excess {product.unit_liquid}
                                                 </label>
@@ -131,20 +135,21 @@ export default function AuditPage({
                                                 />
                                             </div>
                                         )}
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-[11px] font-semibold text-muted-foreground">Condition</label>
-                                            <select
-                                                className="h-8.5 text-[13px] px-2.5 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                                                value={entry.condition}
+                                        <label className="flex items-center gap-2 cursor-pointer py-2">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 accent-primary rounded cursor-pointer"
+                                                checked={entry.condition === "Repurposable"}
                                                 onChange={(event) =>
-                                                    onAuditEntryChange(product.id, { condition: event.target.value }, product.unit)
+                                                    onAuditEntryChange(
+                                                        product.id,
+                                                        { condition: event.target.checked ? "Repurposable" : "Must discard" },
+                                                        product.unit
+                                                    )
                                                 }
-                                            >
-                                                {conditions.map((condition) => (
-                                                    <option key={condition}>{condition}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                            />
+                                            <span className="text-[11px] font-semibold text-muted-foreground">Can be repurposed</span>
+                                        </label>
                                     </div>
                                 </Card>
                             );

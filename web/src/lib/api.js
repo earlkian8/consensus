@@ -41,4 +41,5 @@ export const api = {
     const query = planId ? `?planId=${encodeURIComponent(planId)}` : "";
     return req("GET", `/analytics/latest${query}`);
   },
+  getAnalyticsLogs: () => req("GET", "/analytics/logs"),
 };

@@ -1,7 +1,8 @@
-import React from "react";
+    import React, { useEffect, useState } from "react";
 import { Badge } from "@/components/shadcnUI/badge";
 import { Button } from "@/components/shadcnUI/button";
 import { Card } from "@/components/shadcnUI/card";
+import { api } from "@/lib/api";
 import {
     Bar,
     EvilBarChart,
@@ -11,6 +12,7 @@ import {
     XAxis,
     YAxis,
 } from "@/components/evilcharts/charts/bar-chart";
+import { History, TrendingDown, TrendingUp, Minus } from "lucide-react";
 
 export default function AiInsightsPage({
     active,
@@ -23,16 +25,44 @@ export default function AiInsightsPage({
     onApplyChanges,
     onDismissAI,
 }) {
+    const [historyLogs, setHistoryLogs] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    useEffect(() => {
+        if (active && showHistory && historyLogs.length === 0) {
+            api.getAnalyticsLogs()
+                .then((data) => setHistoryLogs(data))
+                .catch(() => {});
+        }
+    }, [active, showHistory]);
+
     return (
         <div className={`max-w-6xl mx-auto px-6 py-6 pb-10 ${active ? "block" : "hidden"}`}>
             {aiStatus === "empty" && (
-                <div className="text-center py-7 px-3.5 text-muted-foreground">
-                    <div className="text-3xl mb-2">[ ]</div>
-                    <div className="text-[13px] font-semibold text-foreground mb-1">No analysis yet</div>
-                    <div className="text-[11px] leading-relaxed">Complete an excess audit first.</div>
-                    <Button className="mt-3" type="button" onClick={onGoToAudit}>
-                        Go to Audit -&gt;
-                    </Button>
+                <div>
+                    <div className="text-center py-7 px-3.5 text-muted-foreground">
+                        <div className="text-3xl mb-2">[ ]</div>
+                        <div className="text-[13px] font-semibold text-foreground mb-1">No analysis yet</div>
+                        <div className="text-[11px] leading-relaxed">Complete an excess audit first.</div>
+                        <Button className="mt-3" type="button" onClick={onGoToAudit}>
+                            Go to Audit -&gt;
+                        </Button>
+                    </div>
+
+                    {/* History toggle when no active analysis */}
+                    <div className="mt-6 border-t pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            className="gap-1.5"
+                            onClick={() => setShowHistory(!showHistory)}
+                        >
+                            <History size={14} />
+                            {showHistory ? "Hide" : "View"} AI History
+                        </Button>
+                        {showHistory && <HistorySection logs={historyLogs} />}
+                    </div>
                 </div>
             )}
 
@@ -42,9 +72,9 @@ export default function AiInsightsPage({
                         Analyzing excess patterns...
                     </div>
                     <div className="flex gap-1 items-center py-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce delay-0" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce delay-150" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce delay-300" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
                     </div>
                     <div className="text-[11px] text-teal-700 mt-1">Comparing with your plan quantities...</div>
                 </div>
@@ -57,7 +87,7 @@ export default function AiInsightsPage({
                         Based on today's session: {session?.planName}
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
                         <Card className="p-3 bg-secondary/50 border-none">
                             <div className="text-xl font-bold text-destructive">{aiResults.wastePct}%</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Waste rate today</div>
@@ -66,10 +96,6 @@ export default function AiInsightsPage({
                             <div className="text-xl font-bold text-amber-600">{aiResults.adjustedCount}</div>
                             <div className="text-[10px] text-muted-foreground mt-0.5">Items to adjust</div>
                         </Card>
-                        {/* <Card className="p-3 bg-secondary/50 border-none">
-                            <div className="text-xl font-bold text-primary">PHP {aiResults.totalSaved.toLocaleString()}</div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5">Est. savings</div>
-                        </Card> */}
                     </div>
 
                     {aiResults.chartData.length > 0 && (
@@ -117,8 +143,7 @@ export default function AiInsightsPage({
                     </div>
                     <Card className="p-4 shadow-sm">
                         <div className="text-[11px] text-muted-foreground mb-3">
-                            These changes will be saved to the plan and shown as AI
-                            recommendations next time you open it.
+                            Choose to apply AI-optimized quantities or keep your original plan.
                         </div>
                         <div className="flex flex-col gap-1.5 mb-3">
                             {aiResults.rows.map((row) => (
@@ -162,21 +187,95 @@ export default function AiInsightsPage({
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 mt-3">
                             <Button type="button" onClick={onApplyChanges}>
-                                Apply changes to plan
+                                Apply AI changes to next plan
                             </Button>
                             <Button variant="outline" type="button" onClick={onDismissAI}>
-                                Keep original
+                                Keep original quantities
                             </Button>
                         </div>
                     </Card>
 
                     {applyNoteVisible && (
                         <div className="text-center text-[11px] text-primary font-bold mt-2">
-                            Changes saved - visible in Planning tab under your plan.
+                            Changes saved - new plan created in Planning tab.
                         </div>
                     )}
+
+                    {/* History section */}
+                    <div className="mt-6 border-t pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            className="gap-1.5"
+                            onClick={() => setShowHistory(!showHistory)}
+                        >
+                            <History size={14} />
+                            {showHistory ? "Hide" : "View"} AI History
+                        </Button>
+                        {showHistory && <HistorySection logs={historyLogs} />}
+                    </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function HistorySection({ logs }) {
+    if (!logs || logs.length === 0) {
+        return (
+            <div className="mt-4 text-center py-6 text-muted-foreground">
+                <div className="text-xs">No AI history yet. Run your first analysis to see logs here.</div>
+            </div>
+        );
+    }
+
+    // Group logs by plan date
+    const grouped = {};
+    logs.forEach((log) => {
+        const date = log.production_plans?.date || "Unknown";
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push(log);
+    });
+
+    return (
+        <div className="mt-4 flex flex-col gap-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Previous AI Analyses
+            </div>
+            {Object.entries(grouped)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([date, items]) => (
+                    <Card key={date} className="p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-bold text-foreground">{date}</div>
+                            <Badge variant="secondary" className="text-[10px]">
+                                {items.length} product{items.length !== 1 ? "s" : ""}
+                            </Badge>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            {items.map((item) => {
+                                const name = item.products?.name || item.p_fk;
+                                const suggested = Math.round(Number(item.suggested_amount));
+                                const suggestedLiquid = item.suggested_liquid_amount != null
+                                    ? Number(Number(item.suggested_liquid_amount).toFixed(1))
+                                    : null;
+
+                                return (
+                                    <div key={item.id || `${item.p_fk}-${date}`} className="flex items-center gap-2 px-2 py-1.5 rounded bg-secondary/40">
+                                        <span className="text-xs font-medium flex-1">{name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Suggested: <b className="text-foreground">{suggested}</b>
+                                            {suggestedLiquid != null && (
+                                                <> + <b className="text-foreground">{suggestedLiquid}L</b></>
+                                            )}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                ))}
         </div>
     );
 }
