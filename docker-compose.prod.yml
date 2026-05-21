@@ -1,0 +1,13 @@
+services:
+  consensus:
+    image: earlkian8/consensus:latest
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MODEL_SERVICE_URL=http://localhost:5001
+    restart: unless-stopped
