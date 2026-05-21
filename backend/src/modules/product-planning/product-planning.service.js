@@ -27,7 +27,12 @@ export const createProductPlanning = async (planning) => {
 
   const { data: plan, error: planError } = await supabase
     .from("production_plans")
-    .insert({ name, date, end_time: end_time ?? null, is_ready_analysis: is_ready_analysis ?? false })
+    .insert({
+      name,
+      date,
+      end_time: end_time ?? null,
+      is_ready_analysis: is_ready_analysis ?? false,
+    })
     .select()
     .maybeSingle();
 
@@ -35,7 +40,15 @@ export const createProductPlanning = async (planning) => {
 
   const { data: planDetails, error: detailsError } = await supabase
     .from("production_details")
-    .insert(details.map((d) => ({ pp_fk: plan.id, p_fk: d.p_fk, amount: d.amount, liquid_amount: d.liquid_amount ?? null, excess: d.excess ?? null })))
+    .insert(
+      details.map((d) => ({
+        pp_fk: plan.id,
+        p_fk: d.p_fk,
+        amount: d.amount,
+        liquid_amount: d.liquid_amount ?? null,
+        excess: d.excess ?? null,
+      })),
+    )
     .select();
 
   if (detailsError) throw detailsError;
@@ -64,8 +77,8 @@ export const updateProductDetailExcess = async (planId, details) => {
         .update({ excess, condition: condition ?? null })
         .eq("id", id)
         .select()
-        .maybeSingle()
-    )
+        .maybeSingle(),
+    ),
   );
 
   const failed = updates.find((r) => r.error);
@@ -79,7 +92,8 @@ export const updateProductDetailExcess = async (planId, details) => {
 
   if (checkError) throw checkError;
 
-  const allFilled = allDetails.length > 0 && allDetails.every((d) => d.excess !== null);
+  const allFilled =
+    allDetails.length > 0 && allDetails.every((d) => d.excess !== null);
 
   if (allFilled) {
     const { error: updatePlanError } = await supabase
@@ -92,10 +106,20 @@ export const updateProductDetailExcess = async (planId, details) => {
     await runAnalysis(planId);
   }
 
-  return { updated: updates.map((r) => r.data).filter(Boolean), is_ready_analysis: allFilled };
+  return {
+    updated: updates.map((r) => r.data).filter(Boolean),
+    is_ready_analysis: allFilled,
+  };
 };
 
 import * as analysisService from "../analysis/analysis.service.js";
+
+const toNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const stripReasoning = (rows) => rows.map(({ reasoning, ...rest }) => rest);
 
 const runAnalysis = async (planId) => {
   // 1. Fetch current plan details and product names
@@ -118,37 +142,63 @@ const runAnalysis = async (planId) => {
     return;
   }
 
-  console.log("[runAnalysis] Using Python AI Model for planId:", planId);
+  console.log("[runAnalysis] Starting model analysis for planId:", planId);
 
   // 2. Map details to the format expected by analysisService
-  const productsToPredict = currentDetails.map(d => ({
+  const productsToPredict = currentDetails.map((d) => ({
     id: d.p_fk,
-    name: d.products.name
+    name: d.products.name,
   }));
 
-  // 3. Call the Python Model Service
-  const recommendations = await analysisService.getRecommendations(plan.date, productsToPredict);
+  // 3. Call model service
+  const recommendations = await analysisService.getModelRecommendations(
+    plan.date,
+    productsToPredict,
+  );
+
+  if (!recommendations) {
+    console.error(
+      "[runAnalysis] Model analysis failed and no fallback available.",
+    );
+    return;
+  }
 
   // 4. Map recommendations back to production_analysis format
-  const suggestions = recommendations.map(rec => {
-    const detail = currentDetails.find(d => d.p_fk === rec.productId);
-    
-    // If AI fails, fallback to current amount (safety)
-    const suggested = rec.suggestedAmount || parseFloat(detail.amount);
-    
-    // Maintain liquid scaling logic proportional to solid suggestion
-    const suggested_liquid = detail.liquid_amount != null
-      ? parseFloat(detail.amount) > 0
-        ? parseFloat(detail.liquid_amount) * (suggested / parseFloat(detail.amount))
-        : parseFloat(detail.liquid_amount)
-      : null;
+  const suggestions = recommendations.map((rec) => {
+    const detail = currentDetails.find((d) => d.p_fk === rec.productId);
 
-    return {
+    // If AI fails, fallback to current amount (safety)
+    const plannedAmount = toNumber(detail?.amount) ?? 0;
+    const suggestedRaw = toNumber(rec.suggestedAmount);
+    const suggested = suggestedRaw != null ? suggestedRaw : plannedAmount;
+
+    // Maintain liquid scaling logic proportional to solid suggestion
+    const suggested_liquid =
+      detail.liquid_amount != null
+        ? plannedAmount > 0
+          ? toNumber(detail.liquid_amount) * (suggested / plannedAmount)
+          : toNumber(detail.liquid_amount)
+        : null;
+
+    const finalSuggestion = {
       pp_fk: planId,
       p_fk: rec.productId,
-      suggested_amount: Math.max(1, parseFloat(suggested.toFixed(2))),
-      suggested_liquid_amount: suggested_liquid != null ? Math.max(0.1, parseFloat(suggested_liquid.toFixed(2))) : null,
+      suggested_amount: Math.max(1, Number(suggested.toFixed(2))),
+      suggested_liquid_amount:
+        suggested_liquid != null
+          ? Math.max(0.1, Number(suggested_liquid.toFixed(2)))
+          : null,
     };
+
+    // Only add reasoning if provided to avoid schema issues if column is missing
+    if (rec.reasoning) {
+      finalSuggestion.reasoning = rec.reasoning;
+    }
+
+    console.log(
+      `[runAnalysis] Result for ${rec.productId}: ${finalSuggestion.suggested_amount} (Reasoning: ${rec.reasoning || "N/A"})`,
+    );
+    return finalSuggestion;
   });
 
   console.log("[runAnalysis] AI suggestions:", JSON.stringify(suggestions));
@@ -161,9 +211,22 @@ const runAnalysis = async (planId) => {
 
   if (deleteError) throw deleteError;
 
-  const { error: insertError } = await supabase
+  let { error: insertError } = await supabase
     .from("production_analysis")
     .insert(suggestions);
+
+  if (
+    insertError &&
+    typeof insertError.message === "string" &&
+    insertError.message.includes("reasoning")
+  ) {
+    console.warn(
+      "[runAnalysis] reasoning column missing, retrying without reasoning",
+    );
+    ({ error: insertError } = await supabase
+      .from("production_analysis")
+      .insert(stripReasoning(suggestions)));
+  }
 
   if (insertError) throw insertError;
 };

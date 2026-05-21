@@ -31,6 +31,10 @@ if (isFresh) {
 
 await client.query(schema);
 
+await client.query(
+  "ALTER TABLE IF EXISTS production_analysis ADD COLUMN IF NOT EXISTS reasoning TEXT",
+);
+
 console.log("Migration complete.");
 
 await client.end();

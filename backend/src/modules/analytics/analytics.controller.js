@@ -2,7 +2,10 @@ import * as analyticsService from "./analytics.service.js";
 
 export const getLatestAnalytics = async (req, res) => {
   try {
-    const data = await analyticsService.getLatestAnalytics();
+    const { planId } = req.query;
+    const data = planId
+      ? await analyticsService.getAnalyticsForPlan(planId)
+      : await analyticsService.getLatestAnalytics();
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });

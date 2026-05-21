@@ -3,60 +3,60 @@ import joblib
 import pandas as pd
 import numpy as np
 from flask import Flask, request, jsonify
+from retrain_model import run_retraining_pipeline
 
 app = Flask(__name__)
 
-MODEL_PATH = "portion_predictor.joblib"
-SAFETY_BUFFER = 0.05
+MODELS_DIR = "models"
+SAFETY_BUFFER = 0.03
+FEATURE_COLUMNS = ["day_of_week", "week_of_year", "month", "is_weekend"]
+
+def build_features(target_date):
+    target_dt = pd.to_datetime(target_date)
+    return pd.DataFrame({
+        "day_of_week": [target_dt.dayofweek],
+        "week_of_year": [int(target_dt.isocalendar().week)],
+        "month": [target_dt.month],
+        "is_weekend": [1 if target_dt.dayofweek >= 5 else 0],
+    }, columns=FEATURE_COLUMNS)
 
 def get_recommendation(target_date, item_name):
-    """
-    Loads the freshly minted model state from the night before 
-    to make immediate inventory recommendations.
-    """
-    if not os.path.exists(MODEL_PATH):
-        return None, "Error: System model file has not been initialized yet."
+    model_path = os.path.join(MODELS_DIR, f"{item_name}.joblib")
+    
+    if not os.path.exists(model_path):
+        return None, f"No specific model for '{item_name}' yet."
         
     try:
-        # Load the latest binary saved by the retraining script
-        model = joblib.load(MODEL_PATH)
+        model = joblib.load(model_path)
+        features = build_features(target_date)
         
-        # Format target input parameters
-        target_dt = pd.to_datetime(target_date)
-        features = pd.DataFrame({'day_of_week': [target_dt.dayofweek]})
-        
-        # Predict demand baseline
         predicted_baseline = model.predict(features)[0]
-        
-        # Apply business safety margins and round up to a full portion
         final_recommendation = np.ceil(predicted_baseline * (1 + SAFETY_BUFFER))
         
-        return int(final_recommendation), None
+        return max(1, int(final_recommendation)), None
     except Exception as e:
         return None, str(e)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+    if not data or 'date' not in data or 'item' not in data:
+        return jsonify({"error": "Missing 'date' or 'item'"}), 400
     
-    target_date = data.get('date')
-    item_name = data.get('item')
-    
-    if not target_date or not item_name:
-        return jsonify({"error": "Missing 'date' or 'item' in request"}), 400
-    
-    recommendation, error = get_recommendation(target_date, item_name)
-    
+    recommendation, error = get_recommendation(data['date'], data['item'])
     if error:
-        return jsonify({"error": error}), 500
+        return jsonify({"error": error}), 404
     
     return jsonify({
-        "date": target_date,
-        "item": item_name,
+        "date": data['date'],
+        "item": data['item'],
         "recommended_portions": recommendation
     })
+
+@app.route('/train', methods=['POST'])
+def train():
+    result = run_retraining_pipeline()
+    return jsonify(result)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))

@@ -5,25 +5,23 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import root_mean_squared_error
+from sklearn.dummy import DummyRegressor
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Configuration
-MODEL_PATH = "portion_predictor.joblib"
-SCALING_FACTOR = 1.15  # 15% boost for zero-waste days (capped demand)
-SAFETY_BUFFER = 0.05   # 5% extra portions to protect sales margins
+MODELS_DIR = "models"
+SCALING_FACTOR = 1.08
 DATABASE_URL = os.getenv("DATABASE_URL")
+MIN_SAMPLES = 4
+FEATURE_COLUMNS = ["day_of_week", "week_of_year", "month", "is_weekend"]
+
+os.makedirs(MODELS_DIR, exist_ok=True)
 
 def fetch_updated_data():
-    """
-    Pulls data from the database.
-    """
     if not DATABASE_URL:
-        print("Error: DATABASE_URL not found in environment.")
         return []
-
     query = """
     SELECT 
         pp.date, 
@@ -35,74 +33,64 @@ def fetch_updated_data():
     JOIN products p ON pd.p_fk = p.id
     WHERE pp.is_ready_analysis = TRUE
     """
-    
     try:
         conn = psycopg2.connect(DATABASE_URL)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(query)
             return cur.fetchall()
     except Exception as e:
-        print(f"Error fetching data from database: {e}")
+        print(f"Error: {e}")
         return []
     finally:
-        if 'conn' in locals() and conn:
-            conn.close()
-
-def preprocess_and_pipeline(raw_data):
-    """
-    Cleans data and applies the zero-waste demand adjustments.
-    """
-    df = pd.DataFrame(raw_data)
-    if df.empty:
-        return df
-        
-    df['date'] = pd.to_datetime(df['date'])
-    df['day_of_week'] = df['date'].dt.dayofweek
-    
-    # Apply the Capped Demand rule safely
-    df['adjusted_demand'] = np.where(
-        df['waste'] == 0,
-        df['portions_created'].astype(float) * SCALING_FACTOR, # Scale up if sold out
-        df['portions_created'].astype(float) - df['waste'].astype(float)     # True demand if waste exists
-    )
-    return df
+        if 'conn' in locals() and conn: conn.close()
 
 def run_retraining_pipeline():
-    print("--- Starting Daily Retraining Pipeline ---")
-    
-    # 1. Fetch and Preprocess Data
+    print("--- Starting Retraining Pipeline ---")
     raw_logs = fetch_updated_data()
     if not raw_logs:
-        print("No data found to train. Make sure production plans are marked as ready for analysis.")
-        return
+        return {"status": "error", "message": "No data found"}
 
-    df = preprocess_and_pipeline(raw_logs)
-    
-   
+    df = pd.DataFrame(raw_logs)
+    print(f"[Retrain] Fetched {len(df)} rows for {df['item'].nunique()} items")
+    df['date'] = pd.to_datetime(df['date'])
+    df['day_of_week'] = df['date'].dt.dayofweek
+    df['week_of_year'] = df['date'].dt.isocalendar().week.astype(int)
+    df['month'] = df['date'].dt.month
+    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+    df['adjusted_demand'] = np.where(
+        df['waste'] == 0,
+        df['portions_created'].astype(float) * SCALING_FACTOR,
+        df['portions_created'].astype(float) - df['waste'].astype(float),
+    )
+    df['adjusted_demand'] = df['adjusted_demand'].clip(lower=1)
+
     items = df['item'].unique()
+    results = []
     
     for item in items:
-        print(f"Training model for item: {item}")
         item_df = df[df['item'] == item].copy()
-        
-        if len(item_df) < 2:
-            print(f"Skipping {item}: Not enough historical data to train yet.")
+        if len(item_df) < 1: 
             continue
 
-        X = item_df[['day_of_week']]
+        X = item_df[FEATURE_COLUMNS]
         y = item_df['adjusted_demand']
+
+        if len(item_df) < MIN_SAMPLES:
+            model = DummyRegressor(strategy="mean")
+        else:
+            model = RandomForestRegressor(
+                n_estimators=200,
+                random_state=42,
+                min_samples_leaf=2,
+            )
+        model.fit(X, y)
         
-        # 2. Train and Validate
-        new_model = RandomForestRegressor(n_estimators=50, random_state=42)
-        new_model.fit(X, y)
-        
-        predictions = new_model.predict(X)
-        rmse = root_mean_squared_error(y, predictions)
-        print(f"Validation complete for {item}. RMSE: {rmse:.2f}")
-        
-       
-        joblib.dump(new_model, MODEL_PATH)
-        print(f"Success: Model state saved to '{MODEL_PATH}'")
+        model_path = os.path.join(MODELS_DIR, f"{item}.joblib")
+        joblib.dump(model, model_path)
+        results.append(item)
+    
+    print(f"[Retrain] Successfully trained {len(results)} models")
+    return {"status": "success", "trained_items": results}
 
 if __name__ == "__main__":
     run_retraining_pipeline()
